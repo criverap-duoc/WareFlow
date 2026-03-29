@@ -1,0 +1,55 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.dll
+*.exe
+*.pdb
+*.cache
+*.log
+*.vs/
+.vs/
+.vscode/
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+*.mdf
+*.ldf
+
+# Environment
+.env
+appsettings.Development.json
+launchSettings.json
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+build/
+[Bb]in/
+[Oo]bj/
+
+# Visual Studio
+*.vsix
+*.tmp
+*.tmp_proj
+*.userprefs
+*.sln.ide
+
+# Node (para frontend)
+node_modules/
+npm-debug.log
+yarn-error.log
+package-lock.json
+
+# IDE
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store

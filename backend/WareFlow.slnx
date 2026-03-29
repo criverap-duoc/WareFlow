@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="WareFlow.API/WareFlow.API.csproj" />
+  <Project Path="WareFlow.Core/WareFlow.Core.csproj" />
+  <Project Path="WareFlow.Infrastructure/WareFlow.Infrastructure.csproj" />
+</Solution>

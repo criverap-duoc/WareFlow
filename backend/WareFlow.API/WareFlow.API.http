@@ -1,0 +1,6 @@
+@WareFlow.API_HostAddress = http://localhost:5276
+
+GET {{WareFlow.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
