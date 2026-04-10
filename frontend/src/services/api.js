@@ -14,7 +14,7 @@ api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
     if (token) {
-      config.headers.Authorization = Bearer ;
+      config.headers.Authorization = 'Bearer ' + token;
     }
     return config;
   },
@@ -34,16 +34,16 @@ export const authService = {
 // Servicio de productos
 export const productService = {
   getAll: () => api.get('/Products'),
-  getById: (id) => api.get(/Products/),
+  getById: (id) => api.get('/Products/' + id),
   create: (product) => api.post('/Products', product),
-  update: (id, product) => api.put(/Products/, product),
-  delete: (id) => api.delete(/Products/),
+  update: (id, product) => api.put('/Products/' + id, product),
+  delete: (id) => api.delete('/Products/' + id),
 };
 
 // Servicio de órdenes
 export const orderService = {
   getAll: () => api.get('/Orders'),
-  getById: (id) => api.get(/Orders/),
+  getById: (id) => api.get('/Orders/' + id),
   create: (order) => api.post('/Orders', order),
 };
 

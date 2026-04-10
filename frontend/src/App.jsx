@@ -2,6 +2,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './pages/Login';
+import Products from './pages/Products';
 
 function App() {
   return (
@@ -25,7 +26,7 @@ function AppRoutes() {
       />
       <Route
         path="/products"
-        element={isAuthenticated ? <div>Página de Productos (próximamente)</div> : <Navigate to="/login" />}
+        element={isAuthenticated ? <Products /> : <Navigate to="/login" />}
       />
     </Routes>
   );

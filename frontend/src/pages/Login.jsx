@@ -8,24 +8,47 @@ function Login() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [loading, setLoading] = useState(false);
   const { login, register } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
+    setLoading(true);
 
     if (isLogin) {
       const result = await login(email, password);
+      setLoading(false);
       if (result.success) {
         window.location.href = '/products';
       } else {
         setError(result.error);
       }
     } else {
-      const result = await register({ firstName, lastName, email, password });
+      const userData = { 
+        firstName: firstName.trim(), 
+        lastName: lastName.trim(), 
+        email: email.trim(), 
+        password 
+      };
+      
+      const result = await register(userData);
+      setLoading(false);
+      
       if (result.success) {
-        setIsLogin(true);
-        setError('Usuario registrado. Ahora inicia sesión.');
+        setSuccess(result.message || 'Usuario registrado exitosamente. Ahora puedes iniciar sesión.');
+        // Limpiar formulario
+        setFirstName('');
+        setLastName('');
+        setEmail('');
+        setPassword('');
+        // Cambiar a login después de 2 segundos
+        setTimeout(() => {
+          setIsLogin(true);
+          setSuccess('');
+        }, 2000);
       } else {
         setError(result.error);
       }
@@ -38,6 +61,7 @@ function Login() {
         <h2 style={styles.title}>{isLogin ? 'Iniciar Sesión' : 'Registrarse'}</h2>
         
         {error && <div style={styles.error}>{error}</div>}
+        {success && <div style={styles.success}>{success}</div>}
         
         <form onSubmit={handleSubmit} style={styles.form}>
           {!isLogin && (
@@ -49,6 +73,7 @@ function Login() {
                 onChange={(e) => setFirstName(e.target.value)}
                 style={styles.input}
                 required
+                disabled={loading}
               />
               <input
                 type="text"
@@ -57,6 +82,7 @@ function Login() {
                 onChange={(e) => setLastName(e.target.value)}
                 style={styles.input}
                 required
+                disabled={loading}
               />
             </>
           )}
@@ -68,6 +94,7 @@ function Login() {
             onChange={(e) => setEmail(e.target.value)}
             style={styles.input}
             required
+            disabled={loading}
           />
           
           <input
@@ -77,16 +104,22 @@ function Login() {
             onChange={(e) => setPassword(e.target.value)}
             style={styles.input}
             required
+            disabled={loading}
           />
           
-          <button type="submit" style={styles.button}>
-            {isLogin ? 'Ingresar' : 'Registrarse'}
+          <button type="submit" style={styles.button} disabled={loading}>
+            {loading ? 'Cargando...' : (isLogin ? 'Ingresar' : 'Registrarse')}
           </button>
         </form>
         
         <button
-          onClick={() => setIsLogin(!isLogin)}
+          onClick={() => {
+            setIsLogin(!isLogin);
+            setError('');
+            setSuccess('');
+          }}
           style={styles.switchButton}
+          disabled={loading}
         >
           {isLogin ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Inicia sesión'}
         </button>
@@ -141,6 +174,14 @@ const styles = {
     padding: '10px',
     backgroundColor: '#f8d7da',
     color: '#721c24',
+    borderRadius: '4px',
+    marginBottom: '15px',
+    textAlign: 'center',
+  },
+  success: {
+    padding: '10px',
+    backgroundColor: '#d4edda',
+    color: '#155724',
     borderRadius: '4px',
     marginBottom: '15px',
     textAlign: 'center',
