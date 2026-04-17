@@ -1,4 +1,6 @@
-﻿namespace WareFlow.Core.Models
+﻿using WareFlow.Core.Enums;
+
+namespace WareFlow.Core.Models
 {
     public class Product
     {
@@ -10,6 +12,7 @@
         public int Stock { get; set; }
         public int MinimumStock { get; set; }
         public string Category { get; set; } = string.Empty;
+        public string? ImageUrl { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? UpdatedAt { get; set; }
         public bool IsActive { get; set; } = true;

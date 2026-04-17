@@ -129,6 +129,7 @@ public class CreateProductDto
     public int Stock { get; set; }
     public int MinimumStock { get; set; }
     public string Category { get; set; } = string.Empty;
+    public string? ImageUrl { get; set; }
 }
 
 public class UpdateProductDto
@@ -138,4 +139,5 @@ public class UpdateProductDto
     public decimal Price { get; set; }
     public int MinimumStock { get; set; }
     public string Category { get; set; } = string.Empty;
+    public string? ImageUrl { get; set; }
 }
