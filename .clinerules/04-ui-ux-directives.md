@@ -2,72 +2,100 @@
 
 Aplican a cualquier componente React del frontend.
 
-## Principios generales
-- Estilos inline con objeto `styles` (etapa actual — migrar a CSS modules
-  cuando el proyecto crezca)
-- Paleta: azul (#007bff) como primario, gris (#6c757d) secundario,
-  verde (#28a745) éxito, rojo (#dc3545) peligro
-- Tipografía: `system-ui, -apple-system, sans-serif`
-- Sin dependencias de UI externas (no Tailwind, no shadcn) por ahora —
-  el objetivo es demostrar CSS puro + React
+## Stack visual (obligatorio)
 
-## Componentes clave
+- **Tailwind CSS 4** con `@theme inline` para tokens
+- **shadcn/ui** para componentes base (Button, Card, Input, Dialog, Sheet, Badge, Table, etc.)
+- **lucide-react** para iconos (NUNCA emojis en UI)
+- **sonner** para toasts
+- **Geist Sans** para body y headings; **Geist Mono** para números, SKU, fechas, precios tabulares
 
-### Navbar (componente `Navbar.jsx`)
-- Barra superior sticky, fondo oscuro `#2c3e50`
-- Links: Productos, Carrito (con badge), Mis Órdenes, Salir
-- Logo clickeable → `/products`
-- Badge del carrito: círculo rojo con número
+## Sistema de diseño
 
-### Tarjetas de producto
-- Grid responsivo: `repeat(auto-fill, minmax(320px, 1fr))`
-- Imagen 200px alto, `object-fit: cover`
-- Título con `WebkitLineClamp: 2` (máx 2 líneas)
-- Stock bajo (< stock mínimo) en rojo negrita
-- Botones: Editar (amarillo), Eliminar (rojo), Agregar al carrito (azul)
+### Paleta (teal + neutrales)
+Definida en `frontend/src/index.css` con tokens CSS:
+- `--primary` teal `#0F766E` (light) / `#2DD4BF` (dark)
+- Neutrales: `--background`, `--foreground`, `--card`, `--muted`, `--border`, `--input`
+- Semánticos: `--success` (verde), `--warning` (ámbar), `--danger` (rojo), `--info` (azul)
 
-### Formulario de producto
-- Grid de 2-3 columnas con `repeat(auto-fit, minmax(200px, 1fr))`
-- Labels descriptivos + placeholders con ejemplos
-- Texto de ayuda debajo de campos complejos (SKU, stock mínimo)
-- Validación client-side antes de submit
+**Regla:** usar tokens semánticos con modificadores (`bg-success/10 text-success border-success/20`), no colores hardcodeados.
 
-### Dashboard KPIs
-- Grid `repeat(auto-fit, minmax(150px, 1fr))`
-- Card con valor grande (24px, azul) + label pequeño (12px, gris)
-- 6 KPIs: Total, Valor Inventario, Stock Bajo, Sin Stock, Categorías,
-  Precio Promedio
+### Tipografía
+- Título de página: `text-2xl font-semibold tracking-tight`
+- Título de card/sección: `text-base font-semibold`
+- Body: `text-sm`
+- Meta/SKU/labels: `text-xs text-muted-foreground`
+- Cifras y precios: `num font-semibold` (usa `.num` para `tabular-nums`); SKU y números de orden en `font-mono`
 
-### Carrito
-- Layout 2 columnas: items (flex 2) + resumen (flex 1)
-- Item: imagen 80px + detalles + cantidad + subtotal + eliminar
-- Resumen sticky con subtotal, envío, total, botón checkout
+### Espaciado
+- Solo múltiplos de 4 (`gap-2/3/4/6`, `p-4/6`)
+- Contenedor: `max-w-7xl mx-auto px-4 sm:px-6`
 
-### Órdenes
-- Lista vertical de cards
-- Status badge con color según estado
-- Detalle expandible con tabla de items
-- Total destacado en verde
+### Radios y sombras
+- Radios: `rounded-lg` (0.5rem) por defecto
+- Cards: `rounded-lg border bg-card shadow-sm`
+- Botones: variantes de shadcn (`default`, `secondary`, `ghost`, `destructive`, `outline`)
 
-## Imágenes por defecto (getDefaultImage)
-- Detección por nombre/categoría con orden de prioridad:
-  1. GPU (gpu, rtx, gtx, nvidia, amd, radeon, tarjeta)
-  2. CPU (cpu, procesador, intel, ryzen, core i)
-  3. SSD (ssd, disco, almacenamiento, wd black)
-  4. RAM (ram, memoria, corsair, kingston)
-  5. Laptop, Monitor, Teclado, Mouse, Audífonos, Smartphone, Tablet
-  6. Fallback: imagen genérica
+## Navbar — patrón único
+
+- Barra superior sticky (`h-14 sticky top-0 border-b bg-background/80 backdrop-blur`)
+- Logo (icono `Boxes` de lucide + "WareFlow") a la izquierda
+- Links planos al centro-izquierda con subrayado de 2px en `primary` para el activo
+- Carrito con contador `tabular-nums` a la derecha
+- **Avatar con DropdownMenu** para usuario (nombre, rol, Cerrar sesión). NO botón rojo suelto
+- Mobile: hamburguesa que abre `Sheet`
+- Links filtrados por rol desde `NAV_ITEMS` (definido en `lib/constants.js`)
+
+## Cards de producto
+
+Orden visual (de mayor a menor peso):
+1. Imagen `aspect-[4/3] object-cover` con `loading="lazy"` y fallback (icono `Package`)
+2. Categoría (`text-xs` muted) + nombre (`font-medium line-clamp-2`)
+3. SKU en `font-mono text-xs`
+4. Precio (`text-lg font-semibold num`) + badge de stock
+5. **Botón primario "Agregar" ancho completo**. Editar y Eliminar van en `DropdownMenu` `⋯` (solo Admin); Eliminar pasa por `AlertDialog`
+
+NO usar: `SKU:`, `Precio:`, `Stock:` como labels en negrita apilados. La info se lee por jerarquía, no por etiquetas.
+
+## Badge de stock
+
+Usar `stockState(stock, min)` de `lib/constants.js`:
+- `out` → "Sin stock" (danger)
+- `low` → "Stock bajo (n)" (warning)
+- `ok` → "n en stock" (success)
+
+Siempre con punto de color + texto. NUNCA solo color.
+
+## KPIs
+
+- Card grande para Valor del inventario, cards chicas para el resto
+- **Cada KPI es clickeable y aplica el filtro correspondiente**
+- Si hay 0 alertas, mostrar "Todo en orden" con check, no un cero rojo
+
+## Formularios
+
+- `Dialog` en desktop; en mobile `max-sm:h-dvh max-sm:max-w-none max-sm:rounded-none`
+- Labels descriptivos; errores bajo el campo con `aria-invalid` y `aria-describedby`
+- Feedback con `sonner` al guardar
+
+## Imágenes por defecto
+
+- Fuente única: `frontend/src/lib/images.js` → `getDefaultImage(name, category)`
+- Detección por prioridad: GPU → CPU → SSD → RAM → Laptop → Monitor → Teclado → Mouse → Audífonos → Smartphone → Tablet → fallback genérico
 - Preferir Pexels sobre Unsplash para CPU/GPU (más confiable)
-- Fallback con `onError` a imagen genérica
 
 ## Accesibilidad mínima
-- Todo botón con texto visible o `title`/`aria-label`
+
+- Todo botón con texto visible o `aria-label`/`title`
 - Imágenes con `alt` descriptivo
 - `loading="lazy"` en imágenes de listados
+- Focus visible en interactivos
 
 ## Anti-patrones (evitar)
-- Gradientes morados genéricos
-- Fuentes Roboto/Arial/Open Sans
-- Animaciones aleatorias sin propósito
-- Emojis en exceso en UI (ok en títulos de sección, no en datos)
-- Estilos con `!important`
+
+- Emojis como iconos (usar lucide-react)
+- Colores hardcodeados (usar tokens)
+- Estilos inline nuevos (migrar a Tailwind/shadcn)
+- Gradientes genéricos morados
+- Animaciones sin propósito
+- `!important`
