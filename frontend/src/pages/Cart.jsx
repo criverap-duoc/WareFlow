@@ -1,14 +1,25 @@
-﻿import React, { useState } from 'react';
-import { useCart } from '../context/CartContext';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Minus, Plus, ShoppingCart, Trash2 } from 'lucide-react';
+import { useCart } from '../context/CartContext';
 import { orderService } from '../services/api';
-import { formatCLP, formatDate } from '../lib/formatters';
+import { formatCLP, formatDate, calcIVA } from '../lib/formatters';
 import { getDefaultImage } from '../lib/images';
 import { PageHeader } from '../components/layout/PageHeader';
+import { Card } from '../components/ui/card';
+import { Button } from '../components/ui/button';
+import { Separator } from '../components/ui/separator';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '../components/ui/sheet';
 
 function Cart() {
-  const { cart, totalItems, totalAmount, removeFromCart, updateQuantity, clearCart } = useCart();
   const navigate = useNavigate();
+  const { cart, totalItems, totalAmount, removeFromCart, updateQuantity, clearCart } = useCart();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -22,15 +33,15 @@ function Cart() {
     setError('');
 
     const orderData = {
-      items: cart.map(item => ({
+      items: cart.map((item) => ({
         productId: item.id,
-        quantity: item.quantity
+        quantity: item.quantity,
       })),
-      notes: 'Orden desde el carrito - ' + formatDate(new Date().toISOString(), true)
+      notes: 'Orden desde el carrito - ' + formatDate(new Date().toISOString(), true),
     };
 
     try {
-      const response = await orderService.create(orderData);
+      await orderService.create(orderData);
       clearCart();
       navigate('/orders');
     } catch (err) {
@@ -42,101 +53,149 @@ function Cart() {
 
   if (cart.length === 0) {
     return (
-      <div style={styles.container}>
-        <PageHeader title="Carrito" />
-        <div style={styles.emptyCart}>
-          <p>Tu carrito está vacío</p>
-          <button onClick={() => navigate('/products')} style={styles.continueButton}>
-            Continuar comprando
-          </button>
+      <div className="space-y-6">
+        <PageHeader title="Carrito" className="pb-0" />
+        <div className="flex flex-col items-center justify-center gap-3 rounded-lg border bg-card py-16 text-center">
+          <ShoppingCart className="h-12 w-12 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">Tu carrito está vacío</p>
+          <Button onClick={() => navigate('/products')}>Continuar comprando</Button>
         </div>
       </div>
     );
   }
 
+  const iva = calcIVA(totalAmount);
+
+  const summary = (
+    <>
+      <div className="flex justify-between text-sm">
+        <span className="text-muted-foreground">Neto</span>
+        <span className="num">{formatCLP(iva.neto)}</span>
+      </div>
+      <div className="flex justify-between text-sm">
+        <span className="text-muted-foreground">IVA (19%)</span>
+        <span className="num">{formatCLP(iva.iva)}</span>
+      </div>
+      <div className="flex justify-between text-sm">
+        <span className="text-muted-foreground">Envío</span>
+        <span className="num">Gratis</span>
+      </div>
+      <Separator />
+      <div className="flex justify-between text-base font-semibold">
+        <span>Total</span>
+        <span className="num">{formatCLP(iva.total)}</span>
+      </div>
+      <p className="text-xs text-muted-foreground">Precios incluyen IVA</p>
+      <Button className="w-full" onClick={handleCheckout} disabled={loading}>
+        {loading ? 'Procesando…' : 'Finalizar compra'}
+      </Button>
+      <Button
+        variant="outline"
+        className="w-full"
+        onClick={() => navigate('/products')}
+        disabled={loading}
+      >
+        Seguir comprando
+      </Button>
+    </>
+  );
+
   return (
-    <div style={styles.container}>
-      <PageHeader title="Carrito" description={`${totalItems} productos`} />
+    <div className="space-y-6 pb-24 lg:pb-0">
+      <PageHeader
+        title="Carrito"
+        description={`${totalItems} ${totalItems === 1 ? 'producto' : 'productos'} en el carrito`}
+        className="pb-0"
+      />
 
-      {error && <div style={styles.error}>{error}</div>}
+      {error && (
+        <div className="rounded-md border border-danger/20 bg-danger/10 px-3 py-2 text-sm text-danger">
+          {error}
+        </div>
+      )}
 
-      <div style={styles.cartContainer}>
-        <div style={styles.cartItems}>
-          {cart.map(item => (
-            <div key={item.id} style={styles.cartItem}>
+      <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+        <div className="space-y-3">
+          {cart.map((item) => (
+            <Card key={item.id} className="flex-row items-center gap-4 p-4">
               <img
-                src={item.imageUrl || getDefaultImage(item.name)}
+                src={item.imageUrl || getDefaultImage(item.name, item.category)}
                 alt={item.name}
-                style={styles.itemImage}
+                loading="lazy"
+                className="size-20 shrink-0 rounded-md object-cover"
               />
-              <div style={styles.itemDetails}>
-                <h4>{item.name}</h4>
-                <p>SKU: {item.sku}</p>
-                <p>Precio: {formatCLP(item.price)}</p>
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-medium">{item.name}</p>
+                <p className="font-mono text-xs text-muted-foreground">{item.sku}</p>
+                <p className="num mt-1 text-sm text-muted-foreground">{formatCLP(item.price)}</p>
               </div>
-              <div style={styles.itemQuantity}>
-                <button onClick={() => updateQuantity(item.id, item.quantity - 1)} style={styles.qtyButton}>-</button>
-                <span style={styles.qtyValue}>{item.quantity}</span>
-                <button onClick={() => updateQuantity(item.id, item.quantity + 1)} style={styles.qtyButton}>+</button>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                  disabled={item.quantity <= 1}
+                  aria-label="Disminuir cantidad"
+                >
+                  <Minus className="size-4" />
+                </Button>
+                <span className="num min-w-[2ch] text-center text-sm font-medium">
+                  {item.quantity}
+                </span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                  aria-label="Aumentar cantidad"
+                >
+                  <Plus className="size-4" />
+                </Button>
               </div>
-              <div style={styles.itemSubtotal}>
+              <span className="num w-24 text-right text-sm font-semibold">
                 {formatCLP(item.price * item.quantity)}
-              </div>
-              <button onClick={() => removeFromCart(item.id)} style={styles.removeButton}>🗑️</button>
-            </div>
+              </span>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => removeFromCart(item.id)}
+                aria-label="Eliminar del carrito"
+                title="Eliminar"
+              >
+                <Trash2 className="size-4 text-danger" />
+              </Button>
+            </Card>
           ))}
         </div>
 
-        <div style={styles.cartSummary}>
-          <h3>Resumen de Compra</h3>
-          <div style={styles.summaryRow}>
-            <span>Subtotal:</span>
-            <span>{formatCLP(totalAmount)}</span>
+        <Card className="hidden h-fit flex-col gap-3 p-4 lg:sticky lg:top-20 lg:flex">
+          <h3 className="text-base font-semibold">Resumen de compra</h3>
+          {summary}
+        </Card>
+      </div>
+
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 p-4 backdrop-blur lg:hidden">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-xs text-muted-foreground">Total</p>
+            <p className="num font-semibold">{formatCLP(iva.total)}</p>
           </div>
-          <div style={styles.summaryRow}>
-            <span>Envío:</span>
-            <span>Gratis</span>
-          </div>
-          <div style={styles.summaryTotal}>
-            <span>Total:</span>
-            <span>{formatCLP(totalAmount)}</span>
-          </div>
-          <button onClick={handleCheckout} disabled={loading} style={styles.checkoutButton}>
-            {loading ? 'Procesando...' : '✓ Finalizar Compra'}
-          </button>
-          <button onClick={() => navigate('/products')} style={styles.continueButton}>
-            Seguir comprando
-          </button>
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button>Ver resumen</Button>
+            </SheetTrigger>
+            <SheetContent side="bottom" className="gap-3">
+              <SheetHeader>
+                <SheetTitle>Resumen de compra</SheetTitle>
+              </SheetHeader>
+              <div className="space-y-3 px-4 pb-4">{summary}</div>
+            </SheetContent>
+          </Sheet>
         </div>
       </div>
     </div>
   );
 }
-
-const styles = {
-  container: { padding: '20px', maxWidth: '1200px', margin: '0 auto' },
-  title: { marginBottom: '20px', color: '#2c3e50' },
-  cartContainer: { display: 'flex', gap: '30px', flexWrap: 'wrap' },
-  cartItems: { flex: '2', minWidth: '300px', backgroundColor: '#fff', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' },
-  cartItem: { display: 'flex', alignItems: 'center', gap: '15px', padding: '15px', borderBottom: '1px solid #eee', flexWrap: 'wrap' },
-  itemImage: { width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px' },
-  itemDetails: { flex: '2' },
-  itemName: { margin: '0 0 5px 0', color: '#2c3e50' },
-  itemSku: { fontSize: '12px', color: '#7f8c8d', margin: '0 0 5px 0' },
-  itemPrice: { fontSize: '14px', fontWeight: 'bold', color: '#27ae60', margin: 0 },
-  itemQuantity: { display: 'flex', alignItems: 'center', gap: '10px' },
-  qtyButton: { padding: '5px 10px', backgroundColor: '#ecf0f1', color: '#2c3e50', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '16px', fontWeight: 'bold' },
-  qtyValue: { minWidth: '30px', textAlign: 'center', fontWeight: 'bold' },
-  itemSubtotal: { minWidth: '100px', fontWeight: 'bold', color: '#2c3e50', fontSize: '16px' },
-  removeButton: { backgroundColor: '#e74c3c', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', padding: '8px 12px' },
-  cartSummary: { flex: '1', minWidth: '250px', backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', height: 'fit-content', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' },
-  summaryTitle: { margin: '0 0 15px 0', color: '#2c3e50', borderBottom: '2px solid #3498db', paddingBottom: '10px' },
-  summaryRow: { display: 'flex', justifyContent: 'space-between', marginBottom: '10px', color: '#7f8c8d' },
-  summaryTotal: { display: 'flex', justifyContent: 'space-between', marginTop: '15px', paddingTop: '15px', borderTop: '2px solid #ddd', fontWeight: 'bold', fontSize: '18px', color: '#2c3e50' },
-  checkoutButton: { width: '100%', padding: '12px', backgroundColor: '#27ae60', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginBottom: '10px', fontSize: '16px', fontWeight: 'bold' },
-  continueButton: { width: '100%', padding: '12px', backgroundColor: '#3498db', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' },
-  emptyCart: { textAlign: 'center', padding: '50px', backgroundColor: '#f8f9fa', borderRadius: '8px' },
-  error: { padding: '10px', backgroundColor: '#f8d7da', color: '#721c24', borderRadius: '4px', marginBottom: '20px' }
-};
 
 export default Cart;

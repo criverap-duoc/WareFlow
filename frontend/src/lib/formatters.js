@@ -19,3 +19,9 @@ export const formatDate = (iso, withTime = false) => {
     ...(withTime && { hour: "2-digit", minute: "2-digit" }),
   }).format(new Date(safeIso));
 };
+
+// Los precios de la tienda se manejan con IVA incluido (19%).
+export const calcIVA = (totalConIVA) => {
+  const neto = Math.round(totalConIVA / 1.19);
+  return { neto, iva: totalConIVA - neto, total: totalConIVA };
+};

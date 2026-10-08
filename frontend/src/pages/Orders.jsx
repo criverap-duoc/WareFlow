@@ -1,9 +1,28 @@
-﻿import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ChevronDown, ChevronUp, Package } from 'lucide-react';
 import { orderService } from '../services/api';
-import { formatDate, formatCLP } from '../lib/formatters';
+import { formatCLP, formatDate } from '../lib/formatters';
+import { ORDER_STATUS } from '../lib/constants';
 import { PageHeader } from '../components/layout/PageHeader';
+import { OrderStatusBadge } from '../components/orders/OrderStatusBadge';
+import { OrderStepper } from '../components/orders/OrderStepper';
 import { Button } from '../components/ui/button';
+import { Card, CardContent, CardHeader } from '../components/ui/card';
+import { Skeleton } from '../components/ui/skeleton';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../components/ui/table';
+
+const ORDER_STATUS_KEYS = Object.keys(ORDER_STATUS);
+
+const statusKeyOf = (status) =>
+  typeof status === 'number' ? ORDER_STATUS_KEYS[status - 1] : status;
 
 function Orders() {
   const [orders, setOrders] = useState([]);
@@ -30,26 +49,12 @@ function Orders() {
     }
   };
 
-  const getStatusLabel = (status) => {
-    const statusMap = {
-      1: { label: 'Pendiente', color: '#ffc107' },
-      2: { label: 'Procesando', color: '#17a2b8' },
-      3: { label: 'Enviado', color: '#007bff' },
-      4: { label: 'Entregado', color: '#28a745' },
-      5: { label: 'Cancelado', color: '#dc3545' },
-      6: { label: 'Devuelto', color: '#6c757d' }
-    };
-    return statusMap[status] || { label: 'Desconocido', color: '#6c757d' };
-  };
-
-  if (loading) {
-    return <div style={styles.container}>Cargando órdenes...</div>;
-  }
-
   return (
-    <div style={styles.container}>
+    <div className="space-y-4">
       <PageHeader
         title="Mis órdenes"
+        description="Historial de tus compras"
+        className="pb-0"
         actions={
           <Button variant="outline" onClick={() => navigate('/products')}>
             Seguir comprando
@@ -57,84 +62,151 @@ function Orders() {
         }
       />
 
-      {error && <div style={styles.error}>{error}</div>}
+      {error && (
+        <div className="rounded-md border border-danger/20 bg-danger/10 px-3 py-2 text-sm text-danger">
+          {error}
+        </div>
+      )}
 
-      {orders.length === 0 ? (
-        <div style={styles.empty}>
-          <p>No tienes órdenes aún</p>
-          <button onClick={() => navigate('/products')} style={styles.emptyButton}>
-            Comenzar a comprar
-          </button>
+      {loading ? (
+        <div className="space-y-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Card key={i} className="gap-4 p-4 sm:p-6">
+              <div className="space-y-2">
+                <Skeleton className="h-5 w-40" />
+                <Skeleton className="h-3 w-28" />
+              </div>
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-8 w-full sm:w-32" />
+            </Card>
+          ))}
+        </div>
+      ) : orders.length === 0 ? (
+        <div className="flex flex-col items-center justify-center gap-3 rounded-lg border bg-card py-16 text-center">
+          <Package className="h-12 w-12 text-muted-foreground" />
+          <div className="space-y-1">
+            <h3 className="text-lg font-semibold">Aún no tienes órdenes</h3>
+            <p className="text-sm text-muted-foreground">
+              Cuando compres, tus órdenes aparecerán aquí
+            </p>
+          </div>
+          <Button onClick={() => navigate('/products')}>Ver productos</Button>
         </div>
       ) : (
-        <div style={styles.ordersList}>
+        <div className="space-y-4">
           {orders.map((order) => {
-            const statusInfo = getStatusLabel(order.status);
+            const statusKey = statusKeyOf(order.status);
             const isExpanded = expandedOrder === order.id;
 
             return (
-              <div key={order.id} style={styles.orderCard}>
-                <div style={styles.orderHeader}>
-                  <div>
-                    <strong style={styles.orderNumber}>Orden #{order.orderNumber}</strong>
-                    <div style={styles.orderDate}>
-                      {formatDate(order.orderDate, true)}
+              <Card key={order.id} className="gap-0 p-0">
+                <CardHeader className="flex flex-col gap-3 px-4 py-4 sm:px-6">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="space-y-1">
+                      <p className="font-mono text-base font-semibold">{order.orderNumber}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDate(order.orderDate, true)}
+                      </p>
                     </div>
+                    <OrderStatusBadge status={order.status} />
                   </div>
-                  <div>
-                    <span style={{ ...styles.statusBadge, backgroundColor: statusInfo.color }}>
-                      {statusInfo.label}
+                  <OrderStepper statusKey={statusKey} />
+                </CardHeader>
+
+                <CardContent className="px-4 pb-4 sm:px-6">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Total</span>
+                    <span className="num text-base font-semibold">
+                      {formatCLP(order.totalAmount)}
                     </span>
                   </div>
-                </div>
-
-                <div style={styles.orderSummary}>
-                  <span>Total: <strong>{formatCLP(order.totalAmount)}</strong></span>
-                  <span>Productos: {order.items?.length || 0}</span>
-                </div>
-
-                <button
-                  onClick={() => setExpandedOrder(isExpanded ? null : order.id)}
-                  style={styles.detailButton}
-                >
-                  {isExpanded ? '▲ Ocultar detalles' : '▼ Ver detalles'}
-                </button>
-
-                {isExpanded && (
-                  <div style={styles.orderDetails}>
-                    <h4 style={styles.detailsTitle}>📦 Productos</h4>
-                    <div style={styles.itemsHeader}>
-                      <span>Producto</span>
-                      <span>Cantidad</span>
-                      <span>Precio Unitario</span>
-                      <span>Subtotal</span>
-                    </div>
-                    {order.items?.map((item) => (
-                      <div key={item.id} style={styles.orderItem}>
-                        <span style={styles.itemName}>{item.productName}</span>
-                        <span style={styles.itemQty}>{item.quantity}</span>
-                        <span style={styles.itemPrice}>
-                          {formatCLP(item.unitPrice)}
-                        </span>
-                        <span style={styles.itemSubtotal}>
-                          {formatCLP(item.subtotal)}
-                        </span>
-                      </div>
-                    ))}
-                    <div style={styles.orderTotal}>
-                      <span>Total: </span>
-                      <span style={styles.totalAmount}>
-                        {formatCLP(order.totalAmount)}
-                      </span>
-                    </div>
-                    {order.notes && (
-                      <div style={styles.notes}>
-                        <strong>📝 Notas:</strong> {order.notes}
-                      </div>
-                    )}
+                  <div className="mt-1 flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Productos</span>
+                    <span className="num">{order.items?.length || 0}</span>
                   </div>
-                )}
-              </div>
+
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="mt-2 w-full justify-start"
+                    onClick={() => setExpandedOrder(isExpanded ? null : order.id)}
+                    aria-expanded={isExpanded}
+                  >
+                    {isExpanded ? (
+                      <ChevronUp className="size-4" />
+                    ) : (
+                      <ChevronDown className="size-4" />
+                    )}
+                    {isExpanded ? 'Ocultar detalles' : 'Ver detalles'}
+                  </Button>
+
+                  {isExpanded && (
+                    <div className="mt-4 space-y-4 border-t pt-4">
+                      <div className="hidden sm:block">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Producto</TableHead>
+                              <TableHead className="text-center">Cantidad</TableHead>
+                              <TableHead className="text-right">Precio unitario</TableHead>
+                              <TableHead className="text-right">Subtotal</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {order.items?.map((item) => (
+                              <TableRow key={item.id}>
+                                <TableCell className="whitespace-normal font-medium">
+                                  {item.productName}
+                                </TableCell>
+                                <TableCell className="num text-center">{item.quantity}</TableCell>
+                                <TableCell className="num text-right">
+                                  {formatCLP(item.unitPrice)}
+                                </TableCell>
+                                <TableCell className="num text-right font-medium">
+                                  {formatCLP(item.subtotal)}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+
+                      <div className="space-y-3 sm:hidden">
+                        {order.items?.map((item) => (
+                          <div
+                            key={item.id}
+                            className="flex items-start justify-between gap-3 text-sm"
+                          >
+                            <div className="min-w-0">
+                              <p className="font-medium">{item.productName}</p>
+                              <p className="num text-xs text-muted-foreground">
+                                {item.quantity} × {formatCLP(item.unitPrice)}
+                              </p>
+                            </div>
+                            <span className="num shrink-0 font-medium">
+                              {formatCLP(item.subtotal)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="flex items-center justify-between border-t pt-3">
+                        <span className="text-sm text-muted-foreground">Total</span>
+                        <span className="num text-lg font-semibold">
+                          {formatCLP(order.totalAmount)}
+                        </span>
+                      </div>
+
+                      {order.notes && (
+                        <div className="rounded-md bg-muted/50 p-3 text-sm">
+                          <span className="text-muted-foreground">Notas: </span>
+                          {order.notes}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             );
           })}
         </div>
@@ -142,157 +214,5 @@ function Orders() {
     </div>
   );
 }
-
-const styles = {
-  container: {
-    padding: '20px',
-    maxWidth: '1000px',
-    margin: '0 auto'
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '20px'
-  },
-  shopButton: {
-    padding: '10px 20px',
-    backgroundColor: '#3498db',
-    color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer'
-  },
-  ordersList: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '20px'
-  },
-  orderCard: {
-    border: '1px solid #ddd',
-    borderRadius: '8px',
-    padding: '15px',
-    backgroundColor: 'white',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-  },
-  orderHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: '10px'
-  },
-  orderNumber: {
-    fontSize: '16px'
-  },
-  orderDate: {
-    fontSize: '12px',
-    color: '#666',
-    marginTop: '4px'
-  },
-  statusBadge: {
-    padding: '4px 8px',
-    borderRadius: '4px',
-    color: 'white',
-    fontSize: '12px'
-  },
-  orderSummary: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    padding: '10px 0',
-    borderTop: '1px solid #eee',
-    borderBottom: '1px solid #eee'
-  },
-  detailButton: {
-    marginTop: '10px',
-    backgroundColor: '#f8f9fa',
-    border: 'none',
-    padding: '8px',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    width: '100%'
-  },
-  orderDetails: {
-    marginTop: '15px',
-    paddingTop: '15px',
-    borderTop: '1px solid #eee'
-  },
-  detailsTitle: {
-    margin: '0 0 10px 0',
-    color: '#2c3e50'
-  },
-  itemsHeader: {
-    display: 'grid',
-    gridTemplateColumns: '2fr 1fr 1fr 1fr',
-    gap: '10px',
-    padding: '10px',
-    backgroundColor: '#f8f9fa',
-    borderRadius: '4px',
-    fontWeight: 'bold',
-    fontSize: '12px',
-    marginBottom: '5px'
-  },
-  orderItem: {
-    display: 'grid',
-    gridTemplateColumns: '2fr 1fr 1fr 1fr',
-    gap: '10px',
-    padding: '8px 10px',
-    borderBottom: '1px solid #f0f0f0'
-  },
-  itemName: {
-    fontWeight: '500'
-  },
-  itemQty: {
-    textAlign: 'center'
-  },
-  itemPrice: {
-    textAlign: 'right'
-  },
-  itemSubtotal: {
-    textAlign: 'right',
-    fontWeight: 'bold'
-  },
-  orderTotal: {
-    display: 'flex',
-    justifyContent: 'flex-end',
-    gap: '10px',
-    marginTop: '15px',
-    paddingTop: '10px',
-    borderTop: '2px solid #ddd',
-    fontSize: '18px',
-    fontWeight: 'bold'
-  },
-  totalAmount: {
-    color: '#27ae60'
-  },
-  notes: {
-    marginTop: '10px',
-    padding: '10px',
-    backgroundColor: '#f8f9fa',
-    borderRadius: '4px',
-    fontSize: '14px'
-  },
-  error: {
-    padding: '10px',
-    backgroundColor: '#f8d7da',
-    color: '#721c24',
-    borderRadius: '4px',
-    marginBottom: '20px'
-  },
-  empty: {
-    textAlign: 'center',
-    padding: '50px',
-    backgroundColor: '#f8f9fa',
-    borderRadius: '8px'
-  },
-  emptyButton: {
-    marginTop: '15px',
-    padding: '10px 20px',
-    backgroundColor: '#3498db',
-    color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer'
-  }
-};
 
 export default Orders;
