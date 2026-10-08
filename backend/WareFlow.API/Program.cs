@@ -90,10 +90,15 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp", policy =>
     {
-        policy.WithOrigins("http://localhost:5173", "http://localhost:3000", "http://localhost:4200")
+        policy.WithOrigins(
+                "http://localhost:5173",
+                "http://localhost:3000",
+                "http://localhost:4200"
+              )
               .AllowAnyHeader()
               .AllowAnyMethod()
-              .AllowCredentials();
+              .AllowCredentials()
+              .WithExposedHeaders("Content-Disposition");
     });
 });
 
@@ -109,7 +114,11 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
+
 app.UseCors("AllowReactApp");
 app.UseAuthentication();
 app.UseAuthorization();
