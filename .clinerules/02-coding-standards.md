@@ -34,13 +34,14 @@
 - PascalCase: componentes (`Products.jsx`, `Navbar.jsx`)
 - camelCase: funciones, variables, hooks
 - Archivos de página: PascalCase (`Login.jsx`, `Cart.jsx`)
-- Archivos de servicio: camelCase (`api.js`)
+- Archivos de servicio y lib: camelCase (`api.js`, `formatters.js`)
 
 ### Componentes
 - 1 componente por archivo
 - Props desestructuradas en la firma
-- Estilos inline con objeto `styles` al final del archivo (etapa actual)
-- Cuando un componente supere 400 LOC, extraer estilos a CSS module
+- Estilos con Tailwind CSS 4 (clases utilitarias), NO estilos inline nuevos
+- Componentes base desde `components/ui/` (shadcn/ui)
+- Iconos desde `lucide-react`, nunca emojis en UI
 
 ### Estado
 - Context API para estado global (Auth, Cart)
@@ -51,13 +52,21 @@
 ### API Client (`src/services/api.js`)
 - Instancia única de Axios
 - Interceptor de request: adjunta `Authorization: Bearer <token>`
-- Interceptor de response: manejar 401 (logout automático) — pendiente
+- Interceptor de response: manejar 401 (logout automático) y 429 (toast de error) — pendiente
 - Servicios por dominio: `authService`, `productService`, `orderService`
 
 ### Rutas
 - Todas las rutas en `App.jsx`
-- Rutas protegidas con `<Navigate to="/login" />` si no hay sesión
+- Rutas protegidas con `Navigate to /login` si no hay sesión
 - Navbar común en todas las páginas autenticadas (componente `Navbar`)
+
+### Helpers compartidos
+- Formatters en `lib/formatters.js` (`formatCLP`, `formatDate`)
+- Constantes en `lib/constants.js` (`ORDER_STATUS`, `TONE_CLASSES`, `stockState`, `NAV_ITEMS`)
+- Imágenes por defecto en `lib/images.js` (`getDefaultImage`)
+
+### Package manager
+- Frontend: SIEMPRE `pnpm`. NUNCA `npm` ni `yarn`.
 
 ## Git
 
