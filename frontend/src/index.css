@@ -1,0 +1,68 @@
+@import "tailwindcss";
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: #F7F8F9;
+  --foreground: #0F1419;
+  --card: #FFFFFF;
+  --card-foreground: #0F1419;
+  --muted: #EFF1F3;
+  --muted-foreground: #5C6670;
+  --border: #E1E5E9;
+  --input: #D3D8DE;
+  --primary: #0F766E;
+  --primary-foreground: #FFFFFF;
+  --ring: #0F766E;
+  --success: #047857;
+  --warning: #B45309;
+  --danger:  #BE123C;
+  --info:    #1D4ED8;
+  --radius: 0.5rem;
+}
+
+.dark {
+  --background: #0B0F14;
+  --foreground: #E6EAEE;
+  --card: #11171D;
+  --card-foreground: #E6EAEE;
+  --muted: #19212A;
+  --muted-foreground: #94A0AB;
+  --border: #222B34;
+  --input: #2C3640;
+  --primary: #2DD4BF;
+  --primary-foreground: #042F2E;
+  --ring: #2DD4BF;
+  --success: #34D399;
+  --warning: #FBBF24;
+  --danger:  #FB7185;
+  --info:    #60A5FA;
+}
+
+@theme inline {
+  --font-sans: "Geist Variable", system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, monospace;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-info: var(--info);
+  --radius-lg: var(--radius);
+}
+
+@layer base {
+  body { @apply bg-background text-foreground font-sans antialiased; }
+  .num { font-variant-numeric: tabular-nums; }
+}

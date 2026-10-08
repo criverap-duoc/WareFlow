@@ -7,6 +7,7 @@ import Login from './pages/Login';
 import Products from './pages/Products';
 import Cart from './pages/Cart';
 import Orders from './pages/Orders';
+import { Toaster } from 'sonner';
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
         <BrowserRouter>
           <MainLayout />
         </BrowserRouter>
+        <Toaster position="top-right" richColors />
       </CartProvider>
     </AuthProvider>
   );
