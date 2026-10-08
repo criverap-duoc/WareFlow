@@ -1,6 +1,7 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { orderService } from '../services/api';
+import { formatDate, formatCLP } from '../lib/formatters';
 
 function Orders() {
   const [orders, setOrders] = useState([]);
@@ -73,7 +74,7 @@ function Orders() {
                   <div>
                     <strong style={styles.orderNumber}>Orden #{order.orderNumber}</strong>
                     <div style={styles.orderDate}>
-                      {new Date(order.orderDate).toLocaleString()}
+                      {formatDate(order.orderDate, true)}
                     </div>
                   </div>
                   <div>
@@ -84,7 +85,7 @@ function Orders() {
                 </div>
 
                 <div style={styles.orderSummary}>
-                  <span>Total: <strong>${order.totalAmount.toLocaleString()}</strong></span>
+                  <span>Total: <strong>{formatCLP(order.totalAmount)}</strong></span>
                   <span>Productos: {order.items?.length || 0}</span>
                 </div>
 
@@ -109,17 +110,17 @@ function Orders() {
                         <span style={styles.itemName}>{item.productName}</span>
                         <span style={styles.itemQty}>{item.quantity}</span>
                         <span style={styles.itemPrice}>
-                          ${item.unitPrice.toLocaleString()}
+                          {formatCLP(item.unitPrice)}
                         </span>
                         <span style={styles.itemSubtotal}>
-                          ${item.subtotal.toLocaleString()}
+                          {formatCLP(item.subtotal)}
                         </span>
                       </div>
                     ))}
                     <div style={styles.orderTotal}>
                       <span>Total: </span>
                       <span style={styles.totalAmount}>
-                        ${order.totalAmount.toLocaleString()}
+                        {formatCLP(order.totalAmount)}
                       </span>
                     </div>
                     {order.notes && (

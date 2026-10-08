@@ -2,6 +2,8 @@
 import { useCart } from '../context/CartContext';
 import { useNavigate } from 'react-router-dom';
 import { orderService } from '../services/api';
+import { formatCLP, formatDate } from '../lib/formatters';
+import { getDefaultImage } from '../lib/images';
 
 function Cart() {
   const { cart, totalItems, totalAmount, removeFromCart, updateQuantity, clearCart } = useCart();
@@ -23,7 +25,7 @@ function Cart() {
         productId: item.id,
         quantity: item.quantity
       })),
-      notes: 'Orden desde el carrito - ' + new Date().toLocaleString()
+      notes: 'Orden desde el carrito - ' + formatDate(new Date().toISOString(), true)
     };
 
     try {
@@ -62,14 +64,14 @@ function Cart() {
           {cart.map(item => (
             <div key={item.id} style={styles.cartItem}>
               <img
-                src={item.imageUrl || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=100'}
+                src={item.imageUrl || getDefaultImage(item.name)}
                 alt={item.name}
                 style={styles.itemImage}
               />
               <div style={styles.itemDetails}>
                 <h4>{item.name}</h4>
                 <p>SKU: {item.sku}</p>
-                <p>Precio: ${item.price.toLocaleString()}</p>
+                <p>Precio: {formatCLP(item.price)}</p>
               </div>
               <div style={styles.itemQuantity}>
                 <button onClick={() => updateQuantity(item.id, item.quantity - 1)} style={styles.qtyButton}>-</button>
@@ -77,7 +79,7 @@ function Cart() {
                 <button onClick={() => updateQuantity(item.id, item.quantity + 1)} style={styles.qtyButton}>+</button>
               </div>
               <div style={styles.itemSubtotal}>
-                ${(item.price * item.quantity).toLocaleString()}
+                {formatCLP(item.price * item.quantity)}
               </div>
               <button onClick={() => removeFromCart(item.id)} style={styles.removeButton}>🗑️</button>
             </div>
@@ -88,7 +90,7 @@ function Cart() {
           <h3>Resumen de Compra</h3>
           <div style={styles.summaryRow}>
             <span>Subtotal:</span>
-            <span>${totalAmount.toLocaleString()}</span>
+            <span>{formatCLP(totalAmount)}</span>
           </div>
           <div style={styles.summaryRow}>
             <span>Envío:</span>
@@ -96,7 +98,7 @@ function Cart() {
           </div>
           <div style={styles.summaryTotal}>
             <span>Total:</span>
-            <span>${totalAmount.toLocaleString()}</span>
+            <span>{formatCLP(totalAmount)}</span>
           </div>
           <button onClick={handleCheckout} disabled={loading} style={styles.checkoutButton}>
             {loading ? 'Procesando...' : '✓ Finalizar Compra'}

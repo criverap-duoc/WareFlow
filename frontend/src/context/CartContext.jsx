@@ -1,4 +1,5 @@
 ﻿import React, { createContext, useState, useContext, useEffect } from 'react';
+import { getDefaultImage } from '../lib/images';
 
 const CartContext = createContext();
 
@@ -52,7 +53,7 @@ export const CartProvider = ({ children }) => {
           name: product.name,
           price: product.price,
           sku: product.sku,
-          imageUrl: product.imageUrl,
+          imageUrl: product.imageUrl || getDefaultImage(product.name, product.category),
           quantity: quantity,
           maxStock: product.stock
         }];
