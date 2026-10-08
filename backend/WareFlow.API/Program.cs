@@ -123,3 +123,7 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.Run();
+
+// Expuesto para que WebApplicationFactory<Program> pueda referenciar el ensamblado
+// de la API desde el proyecto de pruebas de integración (requerido por minimal hosting).
+public partial class Program { }
