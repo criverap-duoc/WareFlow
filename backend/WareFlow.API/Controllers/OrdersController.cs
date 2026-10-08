@@ -297,7 +297,8 @@ public class OrdersController : ControllerBase
 
     private string GenerateOrderNumber()
     {
-        var date = DateTime.UtcNow;
+        var chileTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Pacific SA Standard Time");
+        var date = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, chileTimeZone);
         var count = _context.Orders.Count() + 1;
         return $"ORD-{date:yyyyMMdd}-{count:D4}";
     }
