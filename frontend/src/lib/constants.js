@@ -17,3 +17,11 @@ export const TONE_CLASSES = {
 
 export const stockState = (stock, min) =>
   stock === 0 ? "out" : stock <= min ? "low" : "ok";
+
+import { Package, ShoppingCart, ClipboardList } from "lucide-react";
+
+export const NAV_ITEMS = [
+  { to: "/products", label: "Productos", icon: Package, roles: ["Admin", "Vendedor", "Bodeguero"] },
+  { to: "/cart", label: "Carrito", icon: ShoppingCart, roles: ["Admin", "Vendedor"] },
+  { to: "/orders", label: "Mis órdenes", icon: ClipboardList, roles: ["Admin", "Vendedor", "Bodeguero"] },
+];

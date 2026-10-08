@@ -1,10 +1,11 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { productService } from '../services/api';
-import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { getDefaultImage } from '../lib/images';
 import { formatCLP } from '../lib/formatters';
+import { PageHeader } from '../components/layout/PageHeader';
+import { Button } from '../components/ui/button';
 
 function Products() {
   const [products, setProducts] = useState([]);
@@ -33,7 +34,6 @@ function Products() {
     category: '',
     imageUrl: ''
   });
-  const { logout } = useAuth();
 
   useEffect(() => {
     loadProducts();
@@ -219,12 +219,14 @@ function Products() {
 
   return (
     <div style={styles.container}>
-      <div style={styles.header}>
-        <h1>📦 Gestión de Productos</h1>
-        <button onClick={() => setShowForm(!showForm)} style={styles.addButton}>
-          {showForm ? '✗ Cancelar' : '+ Nuevo Producto'}
-        </button>
-      </div>
+      <PageHeader
+        title="Productos"
+        actions={
+          <Button variant={showForm ? 'outline' : 'default'} onClick={() => setShowForm(!showForm)}>
+            {showForm ? 'Cancelar' : 'Nuevo producto'}
+          </Button>
+        }
+      />
 
       {/* Dashboard KPIs */}
       <div style={styles.dashboard}>

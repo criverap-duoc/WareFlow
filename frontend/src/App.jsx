@@ -1,8 +1,9 @@
 ﻿import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import Navbar from './components/Navbar';
+import { Container } from './components/layout/Container';
 import Login from './pages/Login';
 import Products from './pages/Products';
 import Cart from './pages/Cart';
@@ -24,11 +25,21 @@ function App() {
 
 function MainLayout() {
   const { isAuthenticated } = useAuth();
+  const location = useLocation();
+  const isLoginPage = location.pathname === '/login';
 
   return (
     <>
-      <Navbar />
-      <AppRoutes />
+      {isAuthenticated && !isLoginPage && <Navbar />}
+      <main className={isLoginPage ? '' : 'py-6'}>
+        {isLoginPage ? (
+          <AppRoutes />
+        ) : (
+          <Container>
+            <AppRoutes />
+          </Container>
+        )}
+      </main>
     </>
   );
 }

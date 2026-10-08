@@ -1,113 +1,171 @@
-﻿import React from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { Boxes, LogOut, Menu, ShoppingCart } from 'lucide-react';
+import { cn } from 'cn';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
+import { NAV_ITEMS } from '../lib/constants';
+import { Container } from './layout/Container';
+import { Button } from './ui/button';
+import { Avatar, AvatarFallback } from './ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuItem,
+} from './ui/dropdown-menu';
+import { Separator } from './ui/separator';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from './ui/sheet';
 
 function Navbar() {
-  const navigate = useNavigate();
   const location = useLocation();
-  const { logout, isAuthenticated } = useAuth();
+  const { logout, isAuthenticated, user } = useAuth();
   const { totalItems } = useCart();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   if (!isAuthenticated) return null;
 
-  const isActive = (path) => location.pathname === path;
+  // Si el usuario no tiene rol (fase 1), se muestran todos los links.
+  const items = user?.role
+    ? NAV_ITEMS.filter((item) => item.roles.includes(user.role))
+    : NAV_ITEMS;
+
+  const fullName =
+    [user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.email || 'Usuario';
+  const initials = (
+    `${user?.firstName?.[0] ?? ''}${user?.lastName?.[0] ?? ''}` ||
+    user?.email?.[0] ||
+    'U'
+  ).toUpperCase();
 
   return (
-    <nav style={styles.navbar}>
-      <div style={styles.logo} onClick={() => navigate('/products')}>
-        📦 WareFlow
-      </div>
-      
-      <div style={styles.navLinks}>
-        <button 
-          onClick={() => navigate('/products')} 
-          style={{ ...styles.navButton, ...(isActive('/products') && styles.active) }}
-        >
-          📋 Productos
-        </button>
-        
-        <button 
-          onClick={() => navigate('/cart')} 
-          style={{ ...styles.navButton, ...(isActive('/cart') && styles.active) }}
-        >
-          🛒 Carrito
-          {totalItems > 0 && <span style={styles.cartBadge}>{totalItems}</span>}
-        </button>
-        
-        <button 
-          onClick={() => navigate('/orders')} 
-          style={{ ...styles.navButton, ...(isActive('/orders') && styles.active) }}
-        >
-          📦 Mis Órdenes
-        </button>
-        
-        <button onClick={logout} style={styles.logoutButton}>
-          🚪 Salir
-        </button>
-      </div>
-    </nav>
+    <header className="sticky top-0 z-50 h-14 border-b bg-background/80 backdrop-blur">
+      <Container className="flex h-full items-center justify-between gap-4">
+        {/* Logo */}
+        <Link to="/products" className="flex items-center gap-2 font-semibold tracking-tight">
+          <Boxes className="size-5 text-primary" />
+          <span className="hidden text-base sm:inline">WareFlow</span>
+        </Link>
+
+        {/* Links (desktop) */}
+        <nav className="hidden flex-1 items-center gap-1 sm:flex">
+          {items.map((item) => {
+            const Icon = item.icon;
+            const active = location.pathname === item.to;
+            return (
+              <Link
+                key={item.to}
+                to={item.to}
+                className={cn(
+                  'relative flex h-14 items-center gap-2 px-3 text-sm font-medium transition-colors hover:text-foreground',
+                  active ? 'text-foreground' : 'text-muted-foreground'
+                )}
+              >
+                <Icon className="size-4" />
+                {item.label}
+                {active && (
+                  <span className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-primary" />
+                )}
+              </Link>
+            );
+          })}
+        </nav>
+
+        {/* Acciones */}
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="icon" asChild className="relative">
+            <Link to="/cart" aria-label="Carrito" title="Carrito">
+              <ShoppingCart className="size-5" />
+              {totalItems > 0 && (
+                <span className="num absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-medium text-primary-foreground">
+                  {totalItems}
+                </span>
+              )}
+            </Link>
+          </Button>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label="Menú de usuario"
+                title="Menú de usuario"
+                className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              >
+                <Avatar className="size-8">
+                  <AvatarFallback className="bg-primary/10 text-xs font-medium text-primary">
+                    {initials}
+                  </AvatarFallback>
+                </Avatar>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel className="flex flex-col gap-0.5">
+                <span className="truncate text-sm font-medium">{fullName}</span>
+                {user?.email && (
+                  <span className="truncate text-xs font-normal text-muted-foreground">
+                    {user.email}
+                  </span>
+                )}
+                {user?.role && (
+                  <span className="mt-1 w-fit rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                    {user.role}
+                  </span>
+                )}
+              </DropdownMenuLabel>
+              <Separator className="my-1" />
+              <DropdownMenuItem onSelect={() => logout()}>
+                <LogOut className="size-4" />
+                Cerrar sesión
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+            <SheetTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="sm:hidden"
+                aria-label="Abrir menú"
+                title="Abrir menú"
+              >
+                <Menu className="size-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-64">
+              <SheetHeader>
+                <SheetTitle>Menú</SheetTitle>
+              </SheetHeader>
+              <nav className="flex flex-col gap-1 px-4">
+                {items.map((item) => {
+                  const Icon = item.icon;
+                  const active = location.pathname === item.to;
+                  return (
+                    <Link
+                      key={item.to}
+                      to={item.to}
+                      onClick={() => setMobileOpen(false)}
+                      className={cn(
+                        'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                        active
+                          ? 'bg-primary/10 text-primary'
+                          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                      )}
+                    >
+                      <Icon className="size-4" />
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </nav>
+            </SheetContent>
+          </Sheet>
+        </div>
+      </Container>
+    </header>
   );
 }
-
-const styles = {
-  navbar: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#2c3e50',
-    padding: '15px 30px',
-    color: 'white',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-    marginBottom: '20px'
-  },
-  logo: {
-    fontSize: '24px',
-    fontWeight: 'bold',
-    cursor: 'pointer',
-    transition: 'opacity 0.2s'
-  },
-  navLinks: {
-    display: 'flex',
-    gap: '15px',
-    alignItems: 'center'
-  },
-  navButton: {
-    backgroundColor: 'transparent',
-    color: 'white',
-    border: 'none',
-    padding: '8px 16px',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    fontSize: '14px',
-    transition: 'background-color 0.2s',
-    position: 'relative'
-  },
-  active: {
-    backgroundColor: '#34495e',
-    borderBottom: '2px solid #3498db'
-  },
-  logoutButton: {
-    backgroundColor: '#e74c3c',
-    color: 'white',
-    border: 'none',
-    padding: '8px 16px',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    fontSize: '14px',
-    marginLeft: '10px'
-  },
-  cartBadge: {
-    position: 'absolute',
-    top: '-5px',
-    right: '-5px',
-    backgroundColor: '#e74c3c',
-    color: 'white',
-    borderRadius: '50%',
-    padding: '2px 6px',
-    fontSize: '10px',
-    fontWeight: 'bold'
-  }
-};
 
 export default Navbar;

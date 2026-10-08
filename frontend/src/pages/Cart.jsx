@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { orderService } from '../services/api';
 import { formatCLP, formatDate } from '../lib/formatters';
 import { getDefaultImage } from '../lib/images';
+import { PageHeader } from '../components/layout/PageHeader';
 
 function Cart() {
   const { cart, totalItems, totalAmount, removeFromCart, updateQuantity, clearCart } = useCart();
@@ -42,7 +43,7 @@ function Cart() {
   if (cart.length === 0) {
     return (
       <div style={styles.container}>
-        <h2>🛒 Carrito de Compras</h2>
+        <PageHeader title="Carrito" />
         <div style={styles.emptyCart}>
           <p>Tu carrito está vacío</p>
           <button onClick={() => navigate('/products')} style={styles.continueButton}>
@@ -55,7 +56,7 @@ function Cart() {
 
   return (
     <div style={styles.container}>
-      <h2>🛒 Carrito de Compras ({totalItems} productos)</h2>
+      <PageHeader title="Carrito" description={`${totalItems} productos`} />
 
       {error && <div style={styles.error}>{error}</div>}
 

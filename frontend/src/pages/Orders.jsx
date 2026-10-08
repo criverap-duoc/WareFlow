@@ -2,6 +2,8 @@
 import { useNavigate } from 'react-router-dom';
 import { orderService } from '../services/api';
 import { formatDate, formatCLP } from '../lib/formatters';
+import { PageHeader } from '../components/layout/PageHeader';
+import { Button } from '../components/ui/button';
 
 function Orders() {
   const [orders, setOrders] = useState([]);
@@ -46,12 +48,14 @@ function Orders() {
 
   return (
     <div style={styles.container}>
-      <div style={styles.header}>
-        <h2>📋 Mis Órdenes</h2>
-        <button onClick={() => navigate('/products')} style={styles.shopButton}>
-          🛒 Seguir comprando
-        </button>
-      </div>
+      <PageHeader
+        title="Mis órdenes"
+        actions={
+          <Button variant="outline" onClick={() => navigate('/products')}>
+            Seguir comprando
+          </Button>
+        }
+      />
 
       {error && <div style={styles.error}>{error}</div>}
 
