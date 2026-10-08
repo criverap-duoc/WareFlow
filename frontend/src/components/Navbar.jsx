@@ -17,6 +17,7 @@ import {
 } from './ui/dropdown-menu';
 import { Separator } from './ui/separator';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from './ui/sheet';
+import { ThemeToggle } from './ThemeToggle';
 
 function Navbar() {
   const location = useLocation();
@@ -84,6 +85,8 @@ function Navbar() {
               )}
             </Link>
           </Button>
+
+          <ThemeToggle />
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

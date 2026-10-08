@@ -1,4 +1,5 @@
 ﻿import axios from 'axios';
+import { toast } from 'sonner';
 
 const API_URL = 'http://localhost:5276/api';
 
@@ -19,6 +20,28 @@ api.interceptors.request.use(
     return config;
   },
   (error) => Promise.reject(error)
+);
+
+// Interceptor de respuesta: manejo global de 401 (sesión expirada) y 429 (rate limit)
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error.response?.status;
+
+    if (status === 401) {
+      // Evitar el toast si ya estamos en la pantalla de login
+      if (window.location.pathname !== '/login') {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        toast.error('Tu sesión expiró. Inicia sesión de nuevo.');
+        window.location.href = '/login';
+      }
+    } else if (status === 429) {
+      toast.error('Demasiadas peticiones. Espera un momento.');
+    }
+
+    return Promise.reject(error);
+  }
 );
 
 // Servicio de autenticación

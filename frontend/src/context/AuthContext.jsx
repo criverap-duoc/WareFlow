@@ -27,7 +27,6 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       const response = await authService.login({ email, password });
-      console.log('Login response:', response.data);
       
       const { token, email: userEmail, firstName, lastName } = response.data;
       const userData = { email: userEmail, firstName, lastName };
@@ -52,9 +51,7 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (userData) => {
     try {
-      console.log('Registering user:', userData);
       const response = await authService.register(userData);
-      console.log('Register response:', response.data);
       return { success: true, message: response.data.message };
     } catch (error) {
       console.error('Register error:', error.response?.data);

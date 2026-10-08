@@ -8,18 +8,21 @@ import Login from './pages/Login';
 import Products from './pages/Products';
 import Cart from './pages/Cart';
 import Orders from './pages/Orders';
-import { Toaster } from 'sonner';
+import { ThemeProvider } from './components/theme-provider';
+import { Toaster } from './components/ui/sonner';
 
 function App() {
   return (
-    <AuthProvider>
-      <CartProvider>
-        <BrowserRouter>
-          <MainLayout />
-        </BrowserRouter>
-        <Toaster position="top-right" richColors />
-      </CartProvider>
-    </AuthProvider>
+    <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
+      <AuthProvider>
+        <CartProvider>
+          <BrowserRouter>
+            <MainLayout />
+          </BrowserRouter>
+          <Toaster position="top-right" richColors />
+        </CartProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 
