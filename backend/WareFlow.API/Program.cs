@@ -104,7 +104,8 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
+// Swagger habilitado en Development y en Production (contenedor Docker, proyecto de portafolio)
+if (app.Environment.IsDevelopment() || app.Environment.IsProduction())
 {
     app.UseSwagger();
     app.UseSwaggerUI(c => 
@@ -114,7 +115,9 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-if (!app.Environment.IsDevelopment())
+// Solo redirigir a HTTPS si no estamos en contenedor (Docker usa HTTP interno)
+var isRunningInContainer = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true";
+if (!app.Environment.IsDevelopment() && !isRunningInContainer)
 {
     app.UseHttpsRedirection();
 }

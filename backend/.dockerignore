@@ -1,0 +1,12 @@
+**/bin
+**/obj
+**/.vs
+**/.vscode
+**/*.user
+**/appsettings.Development.json
+**/appsettings.Local.json
+**/Migrations/*.Designer.cs
+.git
+.gitignore
+README.md
+**/WareFlow.Tests

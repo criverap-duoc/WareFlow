@@ -6,6 +6,7 @@
 [![SQL Server](https://img.shields.io/badge/SQL%20Server-LocalDB-CC2927?logo=microsoftsqlserver&logoColor=white)](https://learn.microsoft.com/sql/database-engine/configure-windows/sql-server-express-localdb)
 [![JWT](https://img.shields.io/badge/Auth-JWT-000000?logo=jsonwebtokens&logoColor=white)](https://jwt.io/)
 [![Swagger](https://img.shields.io/badge/API%20Docs-Swagger-85EA2D?logo=swagger&logoColor=black)](https://swagger.io/)
+[![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](#-licencia)
 
 > API RESTful + SPA en React para gestión de inventarios, productos y órdenes con lógica de negocio real: control de stock, máquina de estados de órdenes, movimientos de inventario y dashboard de KPIs.
@@ -163,6 +164,36 @@ User ──1:N──> Order ──1:N──> OrderItem ──N:1──> Product
 ---
 
 ## 🚀 Quick Start
+
+### Opcion 1: Docker (recomendado)
+
+Requiere Docker Desktop instalado.
+
+```bash
+git clone https://github.com/criverap-duoc/WareFlow.git
+cd WareFlow
+docker compose up --build
+```
+
+Servicios:
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:8080
+- Swagger: http://localhost:8080/swagger
+- SQL Server: localhost:1433 (sa / WareFlow2026!)
+
+Para detener:
+
+```bash
+docker compose down
+```
+
+Para eliminar datos de la base:
+
+```bash
+docker compose down -v
+```
+
+### Opcion 2: Local (desarrollo)
 
 ### Prerrequisitos
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)

@@ -1,7 +1,8 @@
 ﻿import axios from 'axios';
 import { toast } from 'sonner';
 
-const API_URL = 'http://localhost:5276/api';
+// En Docker, VITE_API_URL="/api" (nginx hace proxy al backend). En local, backend de desarrollo.
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5276/api';
 
 const api = axios.create({
   baseURL: API_URL,
