@@ -98,4 +98,40 @@ public class AuthControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         loginResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
+
+    [Fact]
+    public async Task Register_WithDuplicateEmail_ReturnsBadRequest()
+    {
+        var email = UniqueEmail();
+        var payload = new { firstName = "Test", lastName = "User", email, password = ValidPassword };
+
+        var first = await _client.PostAsJsonAsync("/api/auth/register", payload);
+        first.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var second = await _client.PostAsJsonAsync("/api/auth/register", payload);
+
+        second.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Register_WithMissingFields_ReturnsBadRequest()
+    {
+        var response = await _client.PostAsJsonAsync("/api/auth/register", new { });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Login_WithNonExistingUser_ReturnsUnauthorized()
+    {
+        var response = await _client.PostAsJsonAsync("/api/auth/login", new
+        {
+            email = UniqueEmail(),
+            password = ValidPassword
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
+        payload.GetProperty("message").GetString().Should().Contain("Credenciales inválidas");
+    }
 }

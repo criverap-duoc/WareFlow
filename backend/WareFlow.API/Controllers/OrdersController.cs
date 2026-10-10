@@ -125,8 +125,9 @@ public class OrdersController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> CreateOrder([FromBody] CreateOrderDto orderDto)
     {
-        using var transaction = await _context.Database.BeginTransactionAsync();
-
+        // Sin transacción explícita: SaveChangesAsync ya es atómico (EF Core lo
+        // envuelve en una transacción implícita) y el proveedor InMemory que usan
+        // los tests de integración no soporta transacciones.
         try
         {
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -192,13 +193,6 @@ public class OrdersController : ControllerBase
 
             _context.Orders.Add(order);
             await _context.SaveChangesAsync();
-            await transaction.CommitAsync();
-
-            // Cargar la orden completa para respuesta
-            var createdOrder = await _context.Orders
-                .Include(o => o.OrderItems)
-                    .ThenInclude(oi => oi.Product)
-                .FirstOrDefaultAsync(o => o.Id == order.Id);
 
             return CreatedAtAction(nameof(GetOrder), new { id = order.Id }, new
             {
@@ -221,7 +215,6 @@ public class OrdersController : ControllerBase
         }
         catch (Exception ex)
         {
-            await transaction.RollbackAsync();
             return StatusCode(500, new { message = "Error al crear la orden", error = ex.Message });
         }
     }
@@ -251,38 +244,27 @@ public class OrdersController : ControllerBase
         // Si la orden se cancela, restaurar el stock
         if (newStatus == OrderStatus.Cancelled && oldStatus != OrderStatus.Cancelled)
         {
-            using var transaction = await _context.Database.BeginTransactionAsync();
-            try
+            foreach (var item in order.OrderItems)
             {
-                foreach (var item in order.OrderItems)
+                var product = await _context.Products.FindAsync(item.ProductId);
+                if (product != null)
                 {
-                    var product = await _context.Products.FindAsync(item.ProductId);
-                    if (product != null)
+                    product.Stock += item.Quantity;
+
+                    _context.InventoryMovements.Add(new InventoryMovement
                     {
-                        product.Stock += item.Quantity;
-                        
-                        var movement = new InventoryMovement
-                        {
-                            ProductId = item.ProductId,
-                            Type = MovementType.Return,
-                            Quantity = item.Quantity,
-                            Reason = $"Cancelación de orden #{order.OrderNumber}",
-                            MovementDate = DateTime.UtcNow,
-                            OrderId = order.Id
-                        };
-                        _context.InventoryMovements.Add(movement);
-                    }
+                        ProductId = item.ProductId,
+                        Type = MovementType.Return,
+                        Quantity = item.Quantity,
+                        Reason = $"Cancelación de orden #{order.OrderNumber}",
+                        MovementDate = DateTime.UtcNow,
+                        OrderId = order.Id
+                    });
                 }
-                await _context.SaveChangesAsync();
-                await transaction.CommitAsync();
-            }
-            catch
-            {
-                await transaction.RollbackAsync();
-                throw;
             }
         }
 
+        // Un único SaveChangesAsync persiste estado, stock y movimientos de forma atómica.
         await _context.SaveChangesAsync();
 
         return Ok(new
@@ -295,10 +277,31 @@ public class OrdersController : ControllerBase
         });
     }
 
+    // Windows usa el identificador "Pacific SA Standard Time"; Linux y macOS
+    // (ICU) usan "America/Santiago". Sin este fallback, la creación de órdenes
+    // falla en Linux: contenedor Docker y runners de CI.
+    private static readonly TimeZoneInfo ChileTimeZone = ResolveChileTimeZone();
+
+    private static TimeZoneInfo ResolveChileTimeZone()
+    {
+        foreach (var id in new[] { "Pacific SA Standard Time", "America/Santiago" })
+        {
+            try
+            {
+                return TimeZoneInfo.FindSystemTimeZoneById(id);
+            }
+            catch (Exception ex) when (ex is TimeZoneNotFoundException or InvalidTimeZoneException)
+            {
+                // Identificador no disponible en esta plataforma: se prueba el siguiente.
+            }
+        }
+
+        return TimeZoneInfo.Utc;
+    }
+
     private string GenerateOrderNumber()
     {
-        var chileTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Pacific SA Standard Time");
-        var date = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, chileTimeZone);
+        var date = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, ChileTimeZone);
         var count = _context.Orders.Count() + 1;
         return $"ORD-{date:yyyyMMdd}-{count:D4}";
     }

@@ -14,7 +14,11 @@ namespace WareFlow.Tests.Integration;
 /// </summary>
 public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 {
-    public const string DatabaseName = "WareFlowTestDb";
+    /// <summary>
+    /// Nombre de la base InMemory. Es virtual para que las clases de test que
+    /// necesitan un almacén propio puedan sobrescribirlo (ver IsolatedWebApplicationFactory).
+    /// </summary>
+    public virtual string DatabaseName { get; } = "WareFlowTestDb";
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -53,4 +57,13 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
         return host;
     }
+}
+
+/// <summary>
+/// Variante con almacén InMemory propio (nombre único por instancia) para tests
+/// que necesitan partir de una base vacía, sin datos de otras clases de test.
+/// </summary>
+public class IsolatedWebApplicationFactory : CustomWebApplicationFactory
+{
+    public override string DatabaseName { get; } = "WareFlowTestDb_" + Guid.NewGuid().ToString("N");
 }

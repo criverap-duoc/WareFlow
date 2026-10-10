@@ -1,5 +1,6 @@
 # 📦 WareFlow — Sistema de Gestión de Inventarios y Órdenes
 
+[![CI](https://github.com/criverap-duoc/WareFlow/actions/workflows/ci.yml/badge.svg)](https://github.com/criverap-duoc/WareFlow/actions/workflows/ci.yml)
 [![.NET](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)](https://react.dev/)
 [![Entity Framework Core](https://img.shields.io/badge/EF%20Core-9.0.3-512BD4?logo=dotnet&logoColor=white)](https://learn.microsoft.com/ef/core/)
