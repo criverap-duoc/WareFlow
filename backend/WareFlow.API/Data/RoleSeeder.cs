@@ -22,10 +22,13 @@ public static class RoleSeeder
     private static readonly SemaphoreSlim SeedLock = new(1, 1);
 
     /// <summary>
-    /// Crea los roles base si no existen y, si la base ya tenía usuarios sin rol
-    /// (instalación previa a la Fase B.1), asigna Admin al usuario más antiguo.
+    /// Crea los roles base si no existen y asigna rol a todos los usuarios que no
+    /// tengan ninguno (instalación previa a la Fase B.1 o usuarios creados fuera
+    /// del endpoint de registro): el más antiguo recibe Admin y el resto Vendedor.
+    /// Así ningún usuario queda huérfano (sin permisos) tras el arranque.
     /// </summary>
-    public static async Task SeedAsync(IServiceProvider services)
+    /// <returns>Cantidad de usuarios a los que se les asignó rol automáticamente.</returns>
+    public static async Task<int> SeedAsync(IServiceProvider services)
     {
         await SeedLock.WaitAsync();
         try
@@ -36,9 +39,21 @@ public static class RoleSeeder
             foreach (var role in DefaultRoles)
                 await EnsureRoleExistsAsync(roleManager, role);
 
-            var firstUser = await userManager.Users.OrderBy(u => u.CreatedAt).FirstOrDefaultAsync();
-            if (firstUser != null && !(await userManager.GetRolesAsync(firstUser)).Any())
-                await userManager.AddToRoleAsync(firstUser, "Admin");
+            var users = await userManager.Users.OrderBy(u => u.CreatedAt).ToListAsync();
+            var firstUserId = users.FirstOrDefault()?.Id;
+            var assigned = 0;
+
+            foreach (var user in users)
+            {
+                if ((await userManager.GetRolesAsync(user)).Any())
+                    continue;
+
+                var roleToAssign = user.Id == firstUserId ? "Admin" : "Vendedor";
+                await userManager.AddToRoleAsync(user, roleToAssign);
+                assigned++;
+            }
+
+            return assigned;
         }
         finally
         {

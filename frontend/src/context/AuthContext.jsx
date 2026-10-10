@@ -18,9 +18,26 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
     const storedToken = localStorage.getItem('token');
+
     if (storedUser && storedToken) {
-      setUser(JSON.parse(storedUser));
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        // Fase B.1: las sesiones creadas antes de los roles no incluyen `role` y sin
+        // él no se pueden resolver permisos (quedaban a medias: catálogo editable y
+        // stock bloqueado, con 403 del backend). Se descarta la sesión para forzar un
+        // login nuevo, que ya devuelve el rol.
+        if (parsedUser?.role) {
+          setUser(parsedUser);
+        } else {
+          localStorage.removeItem('user');
+          localStorage.removeItem('token');
+        }
+      } catch {
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
+      }
     }
+
     setLoading(false);
   }, []);
 

@@ -141,7 +141,13 @@ using (var scope = app.Services.CreateScope())
 // hosts en paralelo (tests de integración y réplicas en Docker).
 using (var scope = app.Services.CreateScope())
 {
-    await RoleSeeder.SeedAsync(scope.ServiceProvider);
+    // Repara en el arranque a los usuarios sin rol (creados antes de la Fase B.1):
+    // el más antiguo recibe Admin y el resto Vendedor.
+    var seededRoles = await RoleSeeder.SeedAsync(scope.ServiceProvider);
+    if (seededRoles > 0)
+        app.Logger.LogInformation(
+            "RoleSeeder: {Count} usuario(s) sin rol recibieron rol automáticamente",
+            seededRoles);
 }
 
 app.Run();

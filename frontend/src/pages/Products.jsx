@@ -137,16 +137,23 @@ function Products() {
   const filtersRef = useRef(null);
   const { addToCart } = useCart();
   const { user } = useAuth();
-  // Fase B.1: permisos por rol. Sin rol (usuario legado) se mantiene el acceso total.
+  // Fase B.1: permisos por rol. Los nombres deben coincidir con el RoleSeeder del
+  // backend (Admin, Vendedor, Bodeguero). Sin rol no se conceden permisos:
+  // AuthContext descarta las sesiones antiguas que no traían `role` (sesión previa
+  // a los roles), así que un `role` ausente nunca llega hasta acá.
   const role = user?.role;
-  const canCreate = !role || role === 'Admin';
-  const canEdit = !role || role === 'Admin' || role === 'Bodeguero';
-  const canDelete = !role || role === 'Admin';
-  const canBuy = !role || role === 'Admin' || role === 'Vendedor';
-  // Fase B.2: solo Admin (o usuario legado sin rol) edita los campos del catálogo;
-  // el Bodeguero solo ajusta stock/minimumStock.
-  const canEditAllFields = !role || role === 'Admin';
-  const canEditStock = role === 'Admin' || role === 'Bodeguero';
+  const isAdmin = role === 'Admin';
+  const isBodeguero = role === 'Bodeguero';
+  const isVendedor = role === 'Vendedor';
+  const canCreate = isAdmin;
+  const canEdit = isAdmin || isBodeguero;
+  const canDelete = isAdmin;
+  const canBuy = isAdmin || isVendedor;
+  // Fase B.2: solo Admin edita los campos del catálogo; el Bodeguero solo ajusta
+  // stock/minimumStock y envía un payload parcial (ver handleSubmit).
+  const canEditAllFields = isAdmin;
+  const canEditStock = isAdmin || isBodeguero;
+  const isBodegueroOnly = isBodeguero && !isAdmin;
 
   // Filtros serializados: cuando cambia cualquiera de ellos se vuelve a la página 1.
   const filtersKey = [
@@ -352,21 +359,21 @@ function Products() {
       }
     }
 
-    // Fase B.2: al editar se envía solo lo que el rol puede tocar (payload parcial),
-    // así el backend no responde 403 por campos que ni siquiera se muestran.
-    const productToSend =
-      editingProduct && !canEditAllFields
-        ? {
-            stock: parseInt(formData.stock, 10) || 0,
-            minimumStock: parseInt(formData.minimumStock, 10) || 0,
-          }
-        : {
-            ...formData,
-            price: parseFloat(formData.price),
-            stock: parseInt(formData.stock, 10) || 0,
-            minimumStock: parseInt(formData.minimumStock, 10) || 0,
-            imageUrl: formData.imageUrl || getDefaultImage(formData.name, formData.category),
-          };
+    // Fase B.2: el Bodeguero envía un payload parcial (solo inventario); el Admin
+    // envía el producto completo. El backend acepta campos ausentes porque
+    // UpdateProductDto es 100% nullable, así el guard de rol no responde 403.
+    const productToSend = isBodegueroOnly
+      ? {
+          stock: parseInt(formData.stock, 10) || 0,
+          minimumStock: parseInt(formData.minimumStock, 10) || 0,
+        }
+      : {
+          ...formData,
+          price: parseFloat(formData.price),
+          stock: parseInt(formData.stock, 10) || 0,
+          minimumStock: parseInt(formData.minimumStock, 10) || 0,
+          imageUrl: formData.imageUrl || getDefaultImage(formData.name, formData.category),
+        };
 
     try {
       setSaving(true);

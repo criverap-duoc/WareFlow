@@ -27,10 +27,9 @@ function Navbar() {
 
   if (!isAuthenticated) return null;
 
-  // Si el usuario no tiene rol (fase 1), se muestran todos los links.
-  const items = user?.role
-    ? NAV_ITEMS.filter((item) => item.roles.includes(user.role))
-    : NAV_ITEMS;
+  // AuthContext descarta las sesiones sin rol, así que todo usuario autenticado
+  // tiene `role` y el filtrado por rol siempre es aplicable.
+  const items = NAV_ITEMS.filter((item) => item.roles.includes(user.role));
 
   const fullName =
     [user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.email || 'Usuario';
