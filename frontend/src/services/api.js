@@ -56,8 +56,10 @@ export const authService = {
 };
 
 // Servicio de productos
+// getAll acepta params opcionales de paginación y filtros:
+// { page, pageSize, search, category, stockFilter, sortBy, sortOrder, minPrice, maxPrice }
 export const productService = {
-  getAll: () => api.get('/Products'),
+  getAll: (params) => api.get('/Products', { params }),
   getById: (id) => api.get('/Products/' + id),
   create: (product) => api.post('/Products', product),
   update: (id, product) => api.put('/Products/' + id, product),
@@ -65,8 +67,9 @@ export const productService = {
 };
 
 // Servicio de órdenes
+// getAll acepta params opcionales de paginación: { page, pageSize }
 export const orderService = {
-  getAll: () => api.get('/Orders'),
+  getAll: (params) => api.get('/Orders', { params }),
   getById: (id) => api.get('/Orders/' + id),
   create: (order) => api.post('/Orders', order),
 };

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { cn } from 'cn';
 import { toast } from 'sonner';
 import {
@@ -22,6 +22,7 @@ import { useAuth } from '../context/AuthContext';
 import { getDefaultImage } from '../lib/images';
 import { formatCLP } from '../lib/formatters';
 import { PageHeader } from '../components/layout/PageHeader';
+import { ListPagination } from '../components/common/ListPagination';
 import { StockBadge } from '../components/products/StockBadge';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -113,6 +114,19 @@ function Products() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [saving, setSaving] = useState(false);
 
+  // Paginación server-side (Fase B.2)
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [pagination, setPagination] = useState({ totalItems: 0, totalPages: 0 });
+
+  // Resumen del catálogo para los KPIs y el selector de categorías.
+  const [summary, setSummary] = useState({
+    totalProducts: 0,
+    inventoryValue: 0,
+    alerts: 0,
+    categories: [],
+  });
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [priceRange, setPriceRange] = useState('all');
@@ -123,18 +137,64 @@ function Products() {
   const filtersRef = useRef(null);
   const { addToCart } = useCart();
   const { user } = useAuth();
-  // Sin roles implementados (fase 1) se permite gestionar a todos.
-  const canManage = !user?.role || user.role === 'Admin';
+  // Fase B.1: permisos por rol. Sin rol (usuario legado) se mantiene el acceso total.
+  const role = user?.role;
+  const canCreate = !role || role === 'Admin';
+  const canEdit = !role || role === 'Admin' || role === 'Bodeguero';
+  const canDelete = !role || role === 'Admin';
+  const canBuy = !role || role === 'Admin' || role === 'Vendedor';
+  // Fase B.2: solo Admin (o usuario legado sin rol) edita los campos del catálogo;
+  // el Bodeguero solo ajusta stock/minimumStock.
+  const canEditAllFields = !role || role === 'Admin';
+  const canEditStock = role === 'Admin' || role === 'Bodeguero';
 
-  useEffect(() => {
-    loadProducts();
-  }, []);
+  // Filtros serializados: cuando cambia cualquiera de ellos se vuelve a la página 1.
+  const filtersKey = [
+    searchTerm.trim(),
+    selectedCategory,
+    priceRange,
+    stockFilter,
+    sortBy,
+  ].join('|');
+  const previousFiltersKey = useRef(filtersKey);
+
+  const buildQueryParams = () => {
+    const [sortField, sortOrder] = sortBy.split('-');
+    const [minPrice, maxPrice] = priceRange === 'all' ? [] : priceRange.split('-');
+
+    return {
+      page,
+      pageSize,
+      search: searchTerm.trim() || undefined,
+      category: selectedCategory === 'all' ? undefined : selectedCategory,
+      // El backend acepta low | out | alert | ok.
+      stockFilter: { low: 'low', out: 'out', alert: 'alert', in: 'ok' }[stockFilter],
+      sortBy: sortField,
+      sortOrder,
+      minPrice: minPrice || undefined,
+      maxPrice: maxPrice || undefined,
+    };
+  };
 
   const loadProducts = async () => {
     try {
       setLoading(true);
-      const response = await productService.getAll();
-      setProducts(response.data);
+      const response = await productService.getAll(buildQueryParams());
+      const data = response.data ?? {};
+
+      // Si la página quedó fuera de rango (p. ej. al eliminar el último producto de
+      // la última página), se vuelve a la última página disponible: ese cambio de
+      // estado es el que relanza la consulta.
+      if (data.totalPages > 0 && page > data.totalPages) {
+        setPage(data.totalPages);
+        return;
+      }
+
+      setProducts(data.items ?? []);
+      setPagination({
+        totalItems: data.totalItems ?? 0,
+        totalPages: data.totalPages ?? 0,
+      });
       setError('');
     } catch (err) {
       setError('Error al cargar productos');
@@ -144,77 +204,72 @@ function Products() {
     }
   };
 
-  const categories = useMemo(
-    () => [...new Set(products.map((p) => p.category).filter(Boolean))].sort(),
-    [products]
-  );
+  // KPIs: el backend aún no expone agregados, así que se piden hasta 100 productos
+  // (tope de pageSize) para calcular valor del inventario, alertas y categorías.
+  const loadSummary = async () => {
+    try {
+      const response = await productService.getAll({ page: 1, pageSize: 100 });
+      const data = response.data ?? {};
+      const items = data.items ?? [];
 
-  const stats = useMemo(() => {
-    const inventoryValue = products.reduce((sum, p) => {
-      return sum + (Number(p.price) || 0) * (Number(p.stock) || 0);
-    }, 0);
-    const alerts = products.filter((p) => {
-      const stock = Number(p.stock) || 0;
-      const min = Number(p.minimumStock) || 0;
-      return stock === 0 || stock <= min;
-    }).length;
-    return {
-      totalProducts: products.length,
-      inventoryValue,
-      categories: categories.length,
-      alerts,
-    };
-  }, [products, categories]);
-
-  const filteredProducts = useMemo(() => {
-    let filtered = [...products];
-    const term = searchTerm.trim().toLowerCase();
-
-    if (term) {
-      filtered = filtered.filter(
-        (p) =>
-          p.name?.toLowerCase().includes(term) ||
-          p.sku?.toLowerCase().includes(term) ||
-          p.category?.toLowerCase().includes(term)
-      );
-    }
-
-    if (selectedCategory && selectedCategory !== 'all') {
-      filtered = filtered.filter((p) => p.category === selectedCategory);
-    }
-
-    if (priceRange !== 'all') {
-      const [min, max] = priceRange.split('-').map(Number);
-      filtered = filtered.filter((p) => {
-        const price = Number(p.price) || 0;
-        return price >= min && (max ? price <= max : true);
+      setSummary({
+        totalProducts: data.totalItems ?? items.length,
+        inventoryValue: items.reduce(
+          (sum, p) => sum + (Number(p.price) || 0) * (Number(p.stock) || 0),
+          0
+        ),
+        alerts: items.filter((p) => {
+          const stock = Number(p.stock) || 0;
+          const min = Number(p.minimumStock) || 0;
+          return stock === 0 || stock <= min;
+        }).length,
+        categories: [...new Set(items.map((p) => p.category).filter(Boolean))].sort(),
       });
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    loadSummary();
+  }, []);
+
+  useEffect(() => {
+    const filtersChanged = previousFiltersKey.current !== filtersKey;
+    previousFiltersKey.current = filtersKey;
+
+    // Si cambió un filtro estando en otra página, se vuelve a la 1: ese cambio de
+    // estado es el que dispara la consulta (evita una petición con datos viejos).
+    if (filtersChanged && page !== 1) {
+      setPage(1);
+      return;
     }
 
-    if (stockFilter !== 'all') {
-      filtered = filtered.filter((p) => {
-        const stock = Number(p.stock) || 0;
-        const min = Number(p.minimumStock) || 0;
-        if (stockFilter === 'alert') return stock === 0 || stock <= min;
-        if (stockFilter === 'low') return stock <= min;
-        if (stockFilter === 'out') return stock === 0;
-        if (stockFilter === 'in') return stock > 0;
-        return true;
-      });
-    }
+    // La búsqueda por texto se debouncea para no golpear la API en cada tecla.
+    const delay = filtersChanged && searchTerm.trim() ? 300 : 0;
+    const timer = setTimeout(loadProducts, delay);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtersKey, page, pageSize]);
 
-    const [field, direction] = sortBy.split('-');
-    const sign = direction === 'desc' ? -1 : 1;
-    filtered.sort((a, b) => {
-      let comparison = 0;
-      if (field === 'name') comparison = (a.name || '').localeCompare(b.name || '');
-      if (field === 'price') comparison = (Number(a.price) || 0) - (Number(b.price) || 0);
-      if (field === 'stock') comparison = (Number(a.stock) || 0) - (Number(b.stock) || 0);
-      return comparison * sign;
-    });
+  const handlePageChange = (nextPage) => {
+    setPage(nextPage);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
-    return filtered;
-  }, [products, searchTerm, selectedCategory, priceRange, stockFilter, sortBy]);
+  const handlePageSizeChange = (nextPageSize) => {
+    setPageSize(nextPageSize);
+    setPage(1);
+  };
+
+  // KPIs y opciones de categoría: se alimentan del resumen del catálogo.
+  const categories = summary.categories;
+  const stats = {
+    totalProducts: summary.totalProducts,
+    inventoryValue: summary.inventoryValue,
+    categories: categories.length,
+    alerts: summary.alerts,
+  };
 
   const activeFilters = [
     searchTerm.trim() && {
@@ -281,26 +336,37 @@ function Products() {
     e.preventDefault();
     setFormError('');
 
-    if (!formData.name.trim()) {
-      setFormError('El nombre del producto es requerido');
-      return;
-    }
-    if (!formData.sku.trim()) {
-      setFormError('El SKU del producto es requerido');
-      return;
-    }
-    if (!formData.price || Number(formData.price) <= 0) {
-      setFormError('El precio debe ser mayor a 0');
-      return;
+    // El Bodeguero solo ajusta inventario: no se validan ni envían campos de catálogo.
+    if (canEditAllFields) {
+      if (!formData.name.trim()) {
+        setFormError('El nombre del producto es requerido');
+        return;
+      }
+      if (!formData.sku.trim()) {
+        setFormError('El SKU del producto es requerido');
+        return;
+      }
+      if (!formData.price || Number(formData.price) <= 0) {
+        setFormError('El precio debe ser mayor a 0');
+        return;
+      }
     }
 
-    const productToSend = {
-      ...formData,
-      price: parseFloat(formData.price),
-      stock: parseInt(formData.stock) || 0,
-      minimumStock: parseInt(formData.minimumStock) || 0,
-      imageUrl: formData.imageUrl || getDefaultImage(formData.name, formData.category),
-    };
+    // Fase B.2: al editar se envía solo lo que el rol puede tocar (payload parcial),
+    // así el backend no responde 403 por campos que ni siquiera se muestran.
+    const productToSend =
+      editingProduct && !canEditAllFields
+        ? {
+            stock: parseInt(formData.stock, 10) || 0,
+            minimumStock: parseInt(formData.minimumStock, 10) || 0,
+          }
+        : {
+            ...formData,
+            price: parseFloat(formData.price),
+            stock: parseInt(formData.stock, 10) || 0,
+            minimumStock: parseInt(formData.minimumStock, 10) || 0,
+            imageUrl: formData.imageUrl || getDefaultImage(formData.name, formData.category),
+          };
 
     try {
       setSaving(true);
@@ -313,6 +379,7 @@ function Products() {
       }
       closeForm();
       loadProducts();
+      loadSummary();
     } catch (err) {
       console.error(err);
       const message = editingProduct
@@ -331,6 +398,7 @@ function Products() {
       await productService.delete(deleteTarget.id);
       toast.success('Producto eliminado');
       loadProducts();
+      loadSummary();
     } catch (err) {
       console.error(err);
       toast.error('Error al eliminar el producto');
@@ -405,10 +473,12 @@ function Products() {
         description={`${stats.totalProducts} productos en el catálogo`}
         className="pb-0"
         actions={
-          <Button onClick={openCreate}>
-            <Plus className="size-4" />
-            Nuevo producto
-          </Button>
+          canCreate && (
+            <Button onClick={openCreate}>
+              <Plus className="size-4" />
+              Nuevo producto
+            </Button>
+          )
         }
       />
 
@@ -517,7 +587,7 @@ function Products() {
 
           <div className="mt-3 flex flex-wrap items-center gap-2 border-t pt-3">
             <span className="text-sm text-muted-foreground">
-              {filteredProducts.length} {filteredProducts.length === 1 ? 'producto' : 'productos'}
+              {pagination.totalItems} {pagination.totalItems === 1 ? 'producto' : 'productos'}
             </span>
             {activeFilters.map((f) => (
               <Badge key={f.key} variant="outline" className="gap-1 bg-muted/50 font-normal">
@@ -559,7 +629,7 @@ function Products() {
               </Card>
             ))}
           </div>
-        ) : filteredProducts.length === 0 ? (
+        ) : products.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 rounded-lg border bg-card py-16 text-center">
             <Package className="h-12 w-12 text-muted-foreground" />
             <div className="space-y-1">
@@ -572,14 +642,16 @@ function Products() {
               <Button variant="outline" onClick={resetFilters}>
                 Limpiar filtros
               </Button>
-              <Button onClick={openCreate}>
-                <Plus className="size-4" /> Nuevo producto
-              </Button>
+              {canCreate && (
+                <Button onClick={openCreate}>
+                  <Plus className="size-4" /> Nuevo producto
+                </Button>
+              )}
             </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {filteredProducts.map((product) => {
+            {products.map((product) => {
               const safePrice = Number(product?.price) || 0;
               const safeStock = Number(product?.stock) || 0;
               const safeMinStock = Number(product?.minimumStock) || 0;
@@ -604,7 +676,7 @@ function Products() {
                         }
                       }}
                     />
-                    {canManage && (
+                    {(canEdit || canDelete) && (
                       <div className="absolute top-2 right-2">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -619,15 +691,19 @@ function Products() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onSelect={() => handleEdit(product)}>
-                              <Pencil className="size-4" /> Editar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              variant="destructive"
-                              onSelect={() => setDeleteTarget(product)}
-                            >
-                              <Trash2 className="size-4" /> Eliminar
-                            </DropdownMenuItem>
+                            {canEdit && (
+                              <DropdownMenuItem onSelect={() => handleEdit(product)}>
+                                <Pencil className="size-4" /> Editar
+                              </DropdownMenuItem>
+                            )}
+                            {canDelete && (
+                              <DropdownMenuItem
+                                variant="destructive"
+                                onSelect={() => setDeleteTarget(product)}
+                              >
+                                <Trash2 className="size-4" /> Eliminar
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -652,15 +728,29 @@ function Products() {
                     </div>
                   </div>
 
-                  <div className="p-4 pt-0">
-                    <Button size="sm" className="w-full" onClick={() => addToCart(product, 1)}>
-                      <ShoppingCart className="size-4" /> Agregar
-                    </Button>
-                  </div>
+                  {canBuy && (
+                    <div className="p-4 pt-0">
+                      <Button size="sm" className="w-full" onClick={() => addToCart(product, 1)}>
+                        <ShoppingCart className="size-4" /> Agregar
+                      </Button>
+                    </div>
+                  )}
                 </Card>
               );
             })}
           </div>
+        )}
+
+        {!loading && products.length > 0 && (
+          <ListPagination
+            page={page}
+            pageSize={pageSize}
+            totalItems={pagination.totalItems}
+            totalPages={pagination.totalPages}
+            onPageChange={handlePageChange}
+            onPageSizeChange={handlePageSizeChange}
+            itemLabel="productos"
+          />
         )}
 
         {/* Formulario */}
@@ -675,16 +765,24 @@ function Products() {
               <DialogTitle>{editingProduct ? 'Editar producto' : 'Nuevo producto'}</DialogTitle>
             </DialogHeader>
 
+            {editingProduct && !canEditAllFields && (
+              <p className="rounded-md border border-info/20 bg-info/10 px-3 py-2 text-sm text-info">
+                Como Bodeguero solo puedes ajustar el stock y el stock mínimo. El resto de los
+                datos del catálogo los administra un Admin.
+              </p>
+            )}
+
             <form onSubmit={handleSubmit} className="grid gap-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="grid gap-2">
                   <Label htmlFor="p-name">
-                    Nombre <span className="text-destructive">*</span>
+                    Nombre {canEditAllFields && <span className="text-destructive">*</span>}
                   </Label>
                   <Input
                     id="p-name"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    disabled={!canEditAllFields || saving}
                     aria-invalid={Boolean(formError)}
                     aria-describedby="product-form-error"
                   />
@@ -692,7 +790,7 @@ function Products() {
 
                 <div className="grid gap-2">
                   <Label htmlFor="p-sku">
-                    SKU <span className="text-destructive">*</span>
+                    SKU {canEditAllFields && <span className="text-destructive">*</span>}
                   </Label>
                   <Input
                     id="p-sku"
@@ -700,6 +798,7 @@ function Products() {
                     onChange={(e) =>
                       setFormData({ ...formData, sku: e.target.value.toUpperCase() })
                     }
+                    disabled={!canEditAllFields || saving}
                     aria-invalid={Boolean(formError)}
                     aria-describedby="product-form-error"
                   />
@@ -707,7 +806,7 @@ function Products() {
 
                 <div className="grid gap-2">
                   <Label htmlFor="p-price">
-                    Precio (CLP) <span className="text-destructive">*</span>
+                    Precio (CLP) {canEditAllFields && <span className="text-destructive">*</span>}
                   </Label>
                   <Input
                     id="p-price"
@@ -715,6 +814,7 @@ function Products() {
                     min="0"
                     value={formData.price}
                     onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                    disabled={!canEditAllFields || saving}
                     aria-invalid={Boolean(formError)}
                     aria-describedby="product-form-error"
                   />
@@ -728,6 +828,7 @@ function Products() {
                     min="0"
                     value={formData.stock}
                     onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
+                    disabled={!canEditStock || saving}
                   />
                 </div>
 
@@ -739,6 +840,7 @@ function Products() {
                     min="0"
                     value={formData.minimumStock}
                     onChange={(e) => setFormData({ ...formData, minimumStock: e.target.value })}
+                    disabled={!canEditStock || saving}
                   />
                 </div>
 
@@ -748,6 +850,7 @@ function Products() {
                     id="p-category"
                     value={formData.category}
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    disabled={!canEditAllFields || saving}
                   />
                 </div>
 
@@ -757,6 +860,7 @@ function Products() {
                     id="p-image"
                     value={formData.imageUrl}
                     onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+                    disabled={!canEditAllFields || saving}
                     placeholder="Se genera automáticamente si se deja vacío"
                   />
                 </div>
@@ -769,6 +873,7 @@ function Products() {
                   rows={3}
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  disabled={!canEditAllFields || saving}
                 />
               </div>
 

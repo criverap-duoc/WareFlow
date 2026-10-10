@@ -5,6 +5,7 @@ import { orderService } from '../services/api';
 import { formatCLP, formatDate } from '../lib/formatters';
 import { ORDER_STATUS } from '../lib/constants';
 import { PageHeader } from '../components/layout/PageHeader';
+import { ListPagination } from '../components/common/ListPagination';
 import { OrderStatusBadge } from '../components/orders/OrderStatusBadge';
 import { OrderStepper } from '../components/orders/OrderStepper';
 import { Button } from '../components/ui/button';
@@ -29,17 +30,25 @@ function Orders() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [expandedOrder, setExpandedOrder] = useState(null);
-  const navigate = useNavigate();
 
-  useEffect(() => {
-    loadOrders();
-  }, []);
+  // Paginación server-side (Fase B.2)
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [pagination, setPagination] = useState({ totalItems: 0, totalPages: 0 });
+
+  const navigate = useNavigate();
 
   const loadOrders = async () => {
     try {
       setLoading(true);
-      const response = await orderService.getAll();
-      setOrders(response.data.value || response.data || []);
+      const response = await orderService.getAll({ page, pageSize });
+      const data = response.data ?? {};
+
+      setOrders(data.items ?? []);
+      setPagination({
+        totalItems: data.totalItems ?? 0,
+        totalPages: data.totalPages ?? 0,
+      });
       setError('');
     } catch (err) {
       setError('Error al cargar órdenes');
@@ -47,6 +56,21 @@ function Orders() {
     } finally {
       setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    loadOrders();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, pageSize]);
+
+  const handlePageChange = (nextPage) => {
+    setPage(nextPage);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handlePageSizeChange = (nextPageSize) => {
+    setPageSize(nextPageSize);
+    setPage(1);
   };
 
   return (
@@ -209,6 +233,16 @@ function Orders() {
               </Card>
             );
           })}
+
+          <ListPagination
+            page={page}
+            pageSize={pageSize}
+            totalItems={pagination.totalItems}
+            totalPages={pagination.totalPages}
+            onPageChange={handlePageChange}
+            onPageSizeChange={handlePageSizeChange}
+            itemLabel="órdenes"
+          />
         </div>
       )}
     </div>

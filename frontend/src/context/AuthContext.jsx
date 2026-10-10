@@ -28,8 +28,8 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await authService.login({ email, password });
       
-      const { token, email: userEmail, firstName, lastName } = response.data;
-      const userData = { email: userEmail, firstName, lastName };
+      const { token, email: userEmail, firstName, lastName, role } = response.data;
+      const userData = { email: userEmail, firstName, lastName, role };
       
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(userData));
