@@ -26,9 +26,16 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
         var response = await client.GetAsync("/api/products");
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
+        // Fase B.2: el listado devuelve un objeto paginado, no un array plano.
         var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
-        payload.ValueKind.Should().Be(JsonValueKind.Array);
-        payload.GetArrayLength().Should().Be(0);
+        payload.GetProperty("items").ValueKind.Should().Be(JsonValueKind.Array);
+        payload.GetProperty("items").GetArrayLength().Should().Be(0);
+        payload.GetProperty("page").GetInt32().Should().Be(1);
+        payload.GetProperty("pageSize").GetInt32().Should().Be(20);
+        payload.GetProperty("totalItems").GetInt32().Should().Be(0);
+        payload.GetProperty("totalPages").GetInt32().Should().Be(0);
+        payload.GetProperty("hasNext").GetBoolean().Should().BeFalse();
+        payload.GetProperty("hasPrevious").GetBoolean().Should().BeFalse();
     }
 
     [Fact]
@@ -195,12 +202,168 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
         var deleteResponse = await client.DeleteAsync($"/api/products/{productId}");
         deleteResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var response = await _client.GetAsync("/api/products");
+        // Se filtra por SKU para que el resultado no dependa de la paginación.
+        var sku = created.GetProperty("sku").GetString();
+        var response = await _client.GetAsync($"/api/products?search={sku}");
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
-        payload.EnumerateArray()
+        payload.GetProperty("totalItems").GetInt32().Should().Be(0);
+        payload.GetProperty("items").EnumerateArray()
             .Select(p => p.GetProperty("id").GetInt32())
             .Should().NotContain(productId);
     }
+
+    // ---------------- Paginación server-side (Fase B.2) ----------------
+
+    [Fact]
+    public async Task GetProducts_WithPagination_ReturnsRequestedPage()
+    {
+        using var isolatedFactory = new IsolatedWebApplicationFactory();
+        using var client = await isolatedFactory.CreateAuthenticatedClientAsync();
+        await SeedProductsAsync(client, 12);
+
+        var payload = await GetProductsPayloadAsync(client, "/api/products?page=1&pageSize=5");
+
+        payload.GetProperty("page").GetInt32().Should().Be(1);
+        payload.GetProperty("pageSize").GetInt32().Should().Be(5);
+        payload.GetProperty("totalItems").GetInt32().Should().Be(12);
+        payload.GetProperty("totalPages").GetInt32().Should().Be(3);
+        payload.GetProperty("hasPrevious").GetBoolean().Should().BeFalse();
+        payload.GetProperty("hasNext").GetBoolean().Should().BeTrue();
+        payload.GetProperty("items").GetArrayLength().Should().Be(5);
+    }
+
+    [Fact]
+    public async Task GetProducts_WithSecondPage_ReturnsNextSliceWithoutRepeats()
+    {
+        using var isolatedFactory = new IsolatedWebApplicationFactory();
+        using var client = await isolatedFactory.CreateAuthenticatedClientAsync();
+        await SeedProductsAsync(client, 12);
+
+        var firstPage = await GetProductsPayloadAsync(client, "/api/products?page=1&pageSize=5");
+        var secondPage = await GetProductsPayloadAsync(client, "/api/products?page=2&pageSize=5");
+
+        var firstIds = IdsOf(firstPage);
+        var secondIds = IdsOf(secondPage);
+
+        secondPage.GetProperty("page").GetInt32().Should().Be(2);
+        secondPage.GetProperty("hasPrevious").GetBoolean().Should().BeTrue();
+        secondIds.Should().HaveCount(5);
+        secondIds.Intersect(firstIds).Should().BeEmpty();
+        // Orden por nombre ascendente: la segunda página arranca en el producto 06.
+        secondPage.GetProperty("items")[0].GetProperty("name").GetString()
+            .Should().Be("Producto paginado 06");
+    }
+
+    [Fact]
+    public async Task GetProducts_WithTooLargePageSize_ClampsToOneHundred()
+    {
+        using var isolatedFactory = new IsolatedWebApplicationFactory();
+        using var client = await isolatedFactory.CreateAuthenticatedClientAsync();
+        await SeedProductsAsync(client, 3);
+
+        var payload = await GetProductsPayloadAsync(client, "/api/products?page=1&pageSize=500");
+
+        payload.GetProperty("pageSize").GetInt32().Should().Be(100);
+        payload.GetProperty("totalItems").GetInt32().Should().Be(3);
+        payload.GetProperty("totalPages").GetInt32().Should().Be(1);
+        payload.GetProperty("items").GetArrayLength().Should().Be(3);
+    }
+
+    [Fact]
+    public async Task GetProducts_WithSearch_FiltersByName()
+    {
+        using var isolatedFactory = new IsolatedWebApplicationFactory();
+        using var client = await isolatedFactory.CreateAuthenticatedClientAsync();
+        await client.CreateProductAsync(name: "Laptop gamer 14 pulgadas");
+        await client.CreateProductAsync(name: "Mouse inalámbrico");
+        await client.CreateProductAsync(name: "Laptop ultrabook 15 pulgadas");
+
+        var payload = await GetProductsPayloadAsync(client, "/api/products?search=laptop");
+
+        payload.GetProperty("totalItems").GetInt32().Should().Be(2);
+        var names = payload.GetProperty("items").EnumerateArray()
+            .Select(p => p.GetProperty("name").GetString())
+            .ToList();
+        names.Should().HaveCount(2);
+        names.Should().OnlyContain(name => name!.ToLowerInvariant().Contains("laptop"));
+    }
+
+    // ---------------- Payload parcial del Bodeguero (Fase B.2) ----------------
+
+    [Fact]
+    public async Task UpdateProduct_AsBodeguero_WithStockOnly_UpdatesStockAndKeepsCatalog()
+    {
+        using var isolatedFactory = new IsolatedWebApplicationFactory();
+        using var admin = await isolatedFactory.CreateAuthenticatedClientAsync("Admin");
+        var created = await admin.CreateProductAsync(stock: 5, price: 1000m);
+        var productId = created.GetProperty("id").GetInt32();
+
+        using var bodeguero = await isolatedFactory.CreateAuthenticatedClientAsync("Bodeguero");
+        var response = await bodeguero.PutAsJsonAsync($"/api/products/{productId}", new
+        {
+            stock = 9,
+            minimumStock = 3
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
+        payload.GetProperty("stock").GetInt32().Should().Be(9);
+        payload.GetProperty("minimumStock").GetInt32().Should().Be(3);
+        // Un campo ausente del payload no sobrescribe el valor actual.
+        payload.GetProperty("name").GetString().Should().Be("Producto de prueba");
+        payload.GetProperty("price").GetDecimal().Should().Be(1000m);
+    }
+
+    [Fact]
+    public async Task UpdateProduct_AsBodeguero_ChangingCatalogField_ReturnsForbidden()
+    {
+        using var isolatedFactory = new IsolatedWebApplicationFactory();
+        using var admin = await isolatedFactory.CreateAuthenticatedClientAsync("Admin");
+        var created = await admin.CreateProductAsync(stock: 5, price: 1000m);
+        var productId = created.GetProperty("id").GetInt32();
+
+        using var bodeguero = await isolatedFactory.CreateAuthenticatedClientAsync("Bodeguero");
+        var response = await bodeguero.PutAsJsonAsync($"/api/products/{productId}", new
+        {
+            name = "Nombre cambiado por el bodeguero",
+            stock = 9
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
+        payload.GetProperty("message").GetString().Should().Contain("Solo Admin");
+
+        // El producto quedó intacto: ni el stock ni el nombre cambiaron.
+        var product = await isolatedFactory.FindProductInDatabaseAsync(productId);
+        product.Should().NotBeNull();
+        product!.Stock.Should().Be(5);
+        product.Name.Should().Be("Producto de prueba");
+    }
+
+    // ---------------- Helpers ----------------
+
+    private static async Task SeedProductsAsync(HttpClient client, int count)
+    {
+        for (var i = 1; i <= count; i++)
+        {
+            await client.CreateProductAsync(
+                stock: i,
+                price: 1000m * i,
+                name: $"Producto paginado {i:00}");
+        }
+    }
+
+    private static async Task<JsonElement> GetProductsPayloadAsync(HttpClient client, string url)
+    {
+        var response = await client.GetAsync(url);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        return await response.Content.ReadFromJsonAsync<JsonElement>();
+    }
+
+    private static List<int> IdsOf(JsonElement payload) =>
+        payload.GetProperty("items").EnumerateArray()
+            .Select(p => p.GetProperty("id").GetInt32())
+            .ToList();
 }

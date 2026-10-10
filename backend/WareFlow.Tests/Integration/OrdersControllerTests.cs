@@ -177,4 +177,73 @@ public class OrdersControllerTests : IClassFixture<CustomWebApplicationFactory>
         var order = await getResponse.Content.ReadFromJsonAsync<JsonElement>();
         order.GetProperty("status").GetInt32().Should().Be(1);
     }
+
+    // ---------------- Paginación server-side (Fase B.2) ----------------
+
+    [Fact]
+    public async Task GetOrders_WithPagination_ReturnsRequestedPageSize()
+    {
+        using var client = await _factory.CreateAuthenticatedClientAsync();
+        await CreateOrdersAsync(client, 3);
+
+        var response = await client.GetAsync("/api/orders?page=1&pageSize=2");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        // Fase B.2: el listado devuelve un objeto paginado, no un array plano.
+        var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
+        payload.GetProperty("page").GetInt32().Should().Be(1);
+        payload.GetProperty("pageSize").GetInt32().Should().Be(2);
+        payload.GetProperty("items").GetArrayLength().Should().Be(2);
+        payload.GetProperty("totalItems").GetInt32().Should().BeGreaterThan(2);
+        payload.GetProperty("hasPrevious").GetBoolean().Should().BeFalse();
+        payload.GetProperty("hasNext").GetBoolean().Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task GetOrders_WithSecondPage_ReturnsNextSliceWithoutRepeats()
+    {
+        using var client = await _factory.CreateAuthenticatedClientAsync();
+        await CreateOrdersAsync(client, 3);
+
+        var firstPage = await GetOrdersPayloadAsync(client, "/api/orders?page=1&pageSize=2");
+        var secondPage = await GetOrdersPayloadAsync(client, "/api/orders?page=2&pageSize=2");
+
+        var firstIds = IdsOf(firstPage);
+        var secondIds = IdsOf(secondPage);
+
+        secondPage.GetProperty("page").GetInt32().Should().Be(2);
+        secondPage.GetProperty("hasPrevious").GetBoolean().Should().BeTrue();
+        secondIds.Should().NotBeEmpty();
+        secondIds.Intersect(firstIds).Should().BeEmpty();
+    }
+
+    // ---------------- Helpers ----------------
+
+    /// <summary>Crea <paramref name="count"/> órdenes de 1 unidad sobre un producto nuevo.</summary>
+    private static async Task CreateOrdersAsync(HttpClient client, int count)
+    {
+        var product = await client.CreateProductAsync(stock: count * 2);
+        var productId = product.GetProperty("id").GetInt32();
+
+        for (var i = 0; i < count; i++)
+        {
+            var response = await client.PostAsJsonAsync("/api/orders", new
+            {
+                items = new[] { new { productId, quantity = 1 } }
+            });
+            response.StatusCode.Should().Be(HttpStatusCode.Created);
+        }
+    }
+
+    private static async Task<JsonElement> GetOrdersPayloadAsync(HttpClient client, string url)
+    {
+        var response = await client.GetAsync(url);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        return await response.Content.ReadFromJsonAsync<JsonElement>();
+    }
+
+    private static List<int> IdsOf(JsonElement payload) =>
+        payload.GetProperty("items").EnumerateArray()
+            .Select(o => o.GetProperty("id").GetInt32())
+            .ToList();
 }

@@ -46,6 +46,15 @@ public class AuthController : ControllerBase
 
         if (result.Succeeded)
         {
+            // Fase B.1: el primer usuario del sistema queda como Admin; el resto
+            // entra con el rol por defecto (Vendedor).
+            var existingRoles = await _userManager.GetRolesAsync(user);
+            if (!existingRoles.Any())
+            {
+                var isFirstUser = _userManager.Users.Count() == 1;
+                await _userManager.AddToRoleAsync(user, isFirstUser ? "Admin" : "Vendedor");
+            }
+
             return Ok(new { message = "Usuario creado exitosamente", email = user.Email });
         }
 
@@ -73,6 +82,7 @@ public class AuthController : ControllerBase
                 email = user.Email,
                 firstName = user.FirstName,
                 lastName = user.LastName,
+                role = (await _userManager.GetRolesAsync(user)).FirstOrDefault() ?? "Sin rol",
                 expiresIn = DateTime.UtcNow.AddDays(7)
             });
         }

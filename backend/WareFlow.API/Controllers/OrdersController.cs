@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using WareFlow.Core.Models;
 using WareFlow.Core.Enums;
+using WareFlow.Core.DTOs;
 using WareFlow.Infrastructure.Data;
 using System.Security.Claims;
 
@@ -21,11 +22,20 @@ public class OrdersController : ControllerBase
     }
 
     // GET: api/orders
+    // Paginación server-side: devuelve { items, page, pageSize, totalItems, totalPages, hasNext, hasPrevious }.
     [HttpGet]
-    public async Task<IActionResult> GetOrders()
+    public async Task<IActionResult> GetOrders(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20)
     {
+        // Validación de paginación
+        if (page < 1) page = 1;
+        if (pageSize < 1) pageSize = 20;
+        if (pageSize > 100) pageSize = 100;
+
         var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        var isAdmin = User.IsInRole("Admin");
+        // Fase B.1: Admin y Bodeguero ven todas las órdenes; Vendedor solo las suyas.
+        var canSeeAllOrders = User.IsInRole("Admin") || User.IsInRole("Bodeguero");
 
         var query = _context.Orders
             .Include(o => o.OrderItems)
@@ -33,14 +43,19 @@ public class OrdersController : ControllerBase
             .Include(o => o.User)
             .AsQueryable();
 
-        // Si no es admin, solo ve sus propias órdenes
-        if (!isAdmin)
+        if (!canSeeAllOrders)
         {
             query = query.Where(o => o.UserId == userId);
         }
 
-        var orders = await query
-            .OrderByDescending(o => o.OrderDate)
+        query = query.OrderByDescending(o => o.OrderDate);
+
+        // Contar el total antes de paginar
+        var totalItems = await query.CountAsync();
+
+        var items = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .Select(o => new
             {
                 o.Id,
@@ -68,7 +83,7 @@ public class OrdersController : ControllerBase
             })
             .ToListAsync();
 
-        return Ok(orders);
+        return Ok(new PaginatedResponse<object>(items, page, pageSize, totalItems));
     }
 
     // GET: api/orders/{id}
@@ -76,7 +91,8 @@ public class OrdersController : ControllerBase
     public async Task<IActionResult> GetOrder(int id)
     {
         var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        var isAdmin = User.IsInRole("Admin");
+        // Fase B.1: Admin y Bodeguero ven cualquier orden; Vendedor solo la suya.
+        var canSeeAllOrders = User.IsInRole("Admin") || User.IsInRole("Bodeguero");
 
         var order = await _context.Orders
             .Include(o => o.OrderItems)
@@ -115,7 +131,7 @@ public class OrdersController : ControllerBase
             return NotFound(new { message = "Orden no encontrada" });
 
         // Verificar permisos
-        if (!isAdmin && order.User.Id != userId)
+        if (!canSeeAllOrders && order.User.Id != userId)
             return Forbid();
 
         return Ok(order);
@@ -123,6 +139,7 @@ public class OrdersController : ControllerBase
 
     // POST: api/orders
     [HttpPost]
+    [Authorize(Roles = "Admin,Vendedor")]
     public async Task<IActionResult> CreateOrder([FromBody] CreateOrderDto orderDto)
     {
         // Sin transacción explícita: SaveChangesAsync ya es atómico (EF Core lo
@@ -230,6 +247,12 @@ public class OrdersController : ControllerBase
 
         if (order == null)
             return NotFound(new { message = "Orden no encontrada" });
+
+        // Fase B.1: el Vendedor solo puede cambiar el estado de sus propias órdenes.
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var canSeeAllOrders = User.IsInRole("Admin") || User.IsInRole("Bodeguero");
+        if (!canSeeAllOrders && order.UserId != userId)
+            return Forbid();
 
         var oldStatus = order.Status;
         var newStatus = statusDto.Status;

@@ -3,8 +3,10 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using FluentAssertions;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using WareFlow.API.Data;
 using WareFlow.Core.Models;
 using WareFlow.Infrastructure.Data;
 
@@ -24,10 +26,13 @@ internal static class TestHelpers
     public static string UniqueSku(string prefix) => $"{prefix}-{Guid.NewGuid():N}".ToUpperInvariant();
 
     /// <summary>
-    /// Registra un usuario nuevo, hace login y devuelve un HttpClient con el
-    /// header Authorization (Bearer token) ya configurado.
+    /// Registra un usuario nuevo, le asigna <paramref name="role"/> (Admin por
+    /// defecto, que es el rol exigido por los endpoints de escritura), hace login
+    /// y devuelve un HttpClient con el header Authorization ya configurado.
     /// </summary>
-    public static async Task<HttpClient> CreateAuthenticatedClientAsync(this CustomWebApplicationFactory factory)
+    public static async Task<HttpClient> CreateAuthenticatedClientAsync(
+        this CustomWebApplicationFactory factory,
+        string role = "Admin")
     {
         var client = factory.CreateClient();
         var email = UniqueEmail();
@@ -40,6 +45,21 @@ internal static class TestHelpers
             password = ValidPassword
         });
         registerResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // El rol se asigna con Identity y antes del login: los roles viajan como
+        // claims dentro del token, por lo que el token debe emitirse después.
+        using (var scope = factory.Services.CreateScope())
+        {
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
+
+            // Reutiliza el seeder de la API: serializa la creación de roles y evita
+            // duplicados si varias clases de test arrancan hosts en paralelo.
+            await RoleSeeder.EnsureRoleExistsAsync(scope.ServiceProvider, role);
+
+            var user = await userManager.FindByEmailAsync(email);
+            user.Should().NotBeNull();
+            await userManager.AddToRoleAsync(user!, role);
+        }
 
         var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new
         {

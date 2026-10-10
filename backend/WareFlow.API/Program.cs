@@ -8,6 +8,7 @@ using Microsoft.OpenApi.Models;
 using WareFlow.Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
 using WareFlow.Core.Models;
+using WareFlow.API.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -132,6 +133,15 @@ using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     dbContext.Database.EnsureCreated();
+}
+
+// Fase B.1: roles de usuario. Deben existir antes de asignar roles: la tabla
+// AspNetRoles ya fue creada por EnsureCreated en el bloque anterior. El seeder
+// serializa la creación para evitar roles duplicados cuando arrancan varios
+// hosts en paralelo (tests de integración y réplicas en Docker).
+using (var scope = app.Services.CreateScope())
+{
+    await RoleSeeder.SeedAsync(scope.ServiceProvider);
 }
 
 app.Run();
