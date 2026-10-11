@@ -91,15 +91,19 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddScoped<RefreshTokenService>();
 
 // CORS
+// Los orígenes permitidos se leen de configuración (Cors:AllowedOrigins), lo que
+// permite apuntar a Vercel/Azure en producción vía appsettings.Production.json o
+// variables de entorno (Cors__AllowedOrigins__0, __1, ...). Fallback: dev local.
+var allowedOrigins = builder.Configuration
+    .GetSection("Cors:AllowedOrigins")
+    .Get<string[]>()
+    ?? new[] { "http://localhost:5173", "http://localhost:3000", "http://localhost:4200" };
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp", policy =>
     {
-        policy.WithOrigins(
-                "http://localhost:5173",
-                "http://localhost:3000",
-                "http://localhost:4200"
-              )
+        policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials()

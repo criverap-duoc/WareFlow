@@ -3,8 +3,8 @@
 ## Stack
 - Backend: .NET 10 (ASP.NET Core), EF Core 9, SQL Server LocalDB (dev) / Azure SQL (prod planificado)
 - Frontend: React 19 + Vite 8, JavaScript (NO TypeScript por ahora), Context API, Axios
-- Auth: JWT Bearer (7 días de expiración), Identity para usuarios
-- Testing: xUnit + WebApplicationFactory (por implementar)
+- Auth: JWT Bearer (15 min) + refresh tokens (7 días, rotación), Identity para usuarios
+- Testing: xUnit + WebApplicationFactory (42 tests)
 - IA planificada: ML.NET (predicción demanda) + OpenAI API (anomalías)
 
 ## Arquitectura
@@ -16,12 +16,12 @@
 - API versionado: `/api/v1/` (implementado)
 
 ## Decisiones clave
-- Permisos vía Identity Roles (Admin, Vendedor, Bodeguero) — pendiente
+- Permisos vía Identity Roles (Admin, Vendedor, Bodeguero) — implementado
 - Soft delete en Product (IsActive) — implementado
 - Máquina de estados en Order (Pending → Processing → Shipped → Delivered)
 - Movimientos de inventario automáticos en cada orden (InventoryMovement)
 - Imágenes por URL externa + fallback por categoría (getDefaultImage)
-- Paginación server-side — pendiente, alta prioridad
+- Paginación server-side en Products y Orders — implementada
 
 ## Rutas locales
 - Backend API: `backend/WareFlow.API/`

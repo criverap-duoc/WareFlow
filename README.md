@@ -135,6 +135,32 @@ User ──1:N──> Order ──1:N──> OrderItem ──N:1──> Product
 
 ---
 
+## 🏗️ Arquitectura
+
+WareFlow usa una **Clean Architecture simplificada en 3 capas**: `WareFlow.API`
+(HTTP, autenticación, Swagger), `WareFlow.Core` (entidades y enums del dominio,
+sin dependencias) y `WareFlow.Infrastructure` (EF Core, migraciones). El frontend
+es una SPA por features (pages / components / context / services) que consume
+únicamente la API versionada en `/api/v1/`.
+
+Ver diagrama completo en [docs/architecture.md](docs/architecture.md) (visión
+general, capas, flujo de autenticación y modelo de datos).
+
+## 🧭 Decisiones técnicas
+
+Las decisiones de arquitectura se documentan como ADRs (Architecture Decision Records):
+
+| ADR | Decisión |
+|-----|----------|
+| [ADR 001](docs/adr/001-clean-architecture.md) | Clean Architecture en 3 capas (API / Core / Infrastructure) |
+| [ADR 002](docs/adr/002-jwt-refresh-tokens.md) | JWT de 15 min + refresh token de 7 días con rotación |
+| [ADR 003](docs/adr/003-sql-server-over-postgres.md) | SQL Server / Azure SQL en vez de PostgreSQL |
+| [ADR 004](docs/adr/004-tailwind-shadcn.md) | Tailwind CSS 4 + shadcn/ui en el frontend |
+
+Ver [docs/adr/](docs/adr/) para las decisiones arquitectónicas.
+
+---
+
 ## 🛠️ Stack Tecnológico
 
 ### Backend
@@ -161,6 +187,18 @@ User ──1:N──> Order ──1:N──> OrderItem ──N:1──> Product
 ### Base de datos
 - **Dev:** SQL Server LocalDB (`MSSQLLocalDB`)
 - **Prod (planificado):** Azure SQL Database
+
+---
+
+## 🌐 Demo en vivo
+
+| Servicio | URL |
+|----------|-----|
+| Frontend (Vercel) | `<PENDIENTE_URL_VERCEL>` |
+| Backend API (Azure App Service) | `<PENDIENTE_URL_AZURE>` |
+| Swagger | `<PENDIENTE_URL_AZURE>/swagger` |
+
+> *(Placeholders — se completan al cerrar la Fase 5: despliegue en Azure + Vercel.)*
 
 ---
 
@@ -233,8 +271,8 @@ dotnet run
 ```bash
 # En otra terminal
 cd frontend
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
 - App: `http://localhost:5173`
 
@@ -279,9 +317,18 @@ Password: Iceland12.
 
 ---
 
-## 📸 Capturas de pantalla
+## 📸 Capturas
 
-> *(Sección en construcción — se agregarán capturas de: Login, Dashboard de productos con KPIs, Carrito, Historial de órdenes, Swagger.)*
+> *(GIFs pendientes de grabación — se agregan en la Fase 5.)*
+
+| Flujo | GIF |
+|-------|-----|
+| Login + dark mode | [`docs/gifs/01-login.gif`](docs/gifs/01-login.gif) |
+| Productos con filtros y paginación | [`docs/gifs/02-products.gif`](docs/gifs/02-products.gif) |
+| Carrito y checkout | [`docs/gifs/03-cart.gif`](docs/gifs/03-cart.gif) |
+| Historial de órdenes | [`docs/gifs/04-orders.gif`](docs/gifs/04-orders.gif) |
+
+Una vez grabados, cada GIF se embebe con `![descripción](docs/gifs/0X-nombre.gif)`.
 
 ---
 
@@ -295,10 +342,10 @@ Password: Iceland12.
 | Sistema de órdenes + inventario | ✅ 100% |
 | Frontend React (login, productos, carrito, órdenes) | ✅ 85% |
 | Base de datos + seed | ✅ 95% |
-| Documentación | 🟡 50% |
-| Tests automatizados | ⏳ Pendiente |
-| Docker | ⏳ Pendiente |
-| CI/CD | ⏳ Pendiente |
+| Documentación | ✅ 90% |
+| Tests automatizados | ✅ 42 tests |
+| Docker | ✅ |
+| CI/CD | ✅ |
 | Despliegue en la nube | ⏳ Pendiente |
 
 **Progreso global:** ~82%
@@ -340,8 +387,8 @@ Password: Iceland12.
 - [ ] Despliegue en Azure App Service + Azure SQL
 - [ ] Frontend en Vercel
 - [ ] Video demo (2 min)
-- [ ] Diagrama de arquitectura
-- [ ] ADRs (Architecture Decision Records)
+- [x] Diagrama de arquitectura
+- [x] ADRs (Architecture Decision Records)
 
 ---
 

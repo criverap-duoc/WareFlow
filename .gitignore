@@ -24,6 +24,7 @@ obj/
 # Environment
 .env
 appsettings.Development.json
+appsettings.Production.json
 launchSettings.json
 
 # Build results
