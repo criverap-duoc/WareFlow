@@ -42,7 +42,7 @@ services:
       sqlserver:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8080/api/Health"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/api/v1/Health"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -55,7 +55,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: "/api"
+        VITE_API_URL: "/api/v1"
     container_name: wareflow-frontend
     ports:
       - "3000:80"

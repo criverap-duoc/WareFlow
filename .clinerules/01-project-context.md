@@ -13,7 +13,7 @@
   - `WareFlow.Core` → Models, Enums, DTOs, Interfaces
   - `WareFlow.Infrastructure` → ApplicationDbContext, Migrations
 - Frontend por features: pages/, components/, context/, services/
-- API versionado: `/api/v1/` (migración pendiente desde `/api/`)
+- API versionado: `/api/v1/` (implementado)
 
 ## Decisiones clave
 - Permisos vía Identity Roles (Admin, Vendedor, Bodeguero) — pendiente

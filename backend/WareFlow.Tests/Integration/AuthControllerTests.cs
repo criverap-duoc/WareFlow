@@ -26,7 +26,7 @@ public class AuthControllerTests : IClassFixture<CustomWebApplicationFactory>
     /// </summary>
     private async Task<(string AccessToken, string RefreshToken)> RegisterAndLoginAsync(string email)
     {
-        var registerResponse = await _client.PostAsJsonAsync("/api/auth/register", new
+        var registerResponse = await _client.PostAsJsonAsync("/api/v1/auth/register", new
         {
             firstName = "Test",
             lastName = "User",
@@ -35,7 +35,7 @@ public class AuthControllerTests : IClassFixture<CustomWebApplicationFactory>
         });
         registerResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var loginResponse = await _client.PostAsJsonAsync("/api/auth/login", new
+        var loginResponse = await _client.PostAsJsonAsync("/api/v1/auth/login", new
         {
             email,
             password = ValidPassword
@@ -53,7 +53,7 @@ public class AuthControllerTests : IClassFixture<CustomWebApplicationFactory>
     {
         var email = UniqueEmail();
 
-        var response = await _client.PostAsJsonAsync("/api/auth/register", new
+        var response = await _client.PostAsJsonAsync("/api/v1/auth/register", new
         {
             firstName = "Test",
             lastName = "User",
@@ -69,7 +69,7 @@ public class AuthControllerTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task Register_WithWeakPassword_ReturnsBadRequest()
     {
-        var response = await _client.PostAsJsonAsync("/api/auth/register", new
+        var response = await _client.PostAsJsonAsync("/api/v1/auth/register", new
         {
             firstName = "Test",
             lastName = "User",
@@ -102,7 +102,7 @@ public class AuthControllerTests : IClassFixture<CustomWebApplicationFactory>
     {
         var (_, refreshToken) = await RegisterAndLoginAsync(UniqueEmail());
 
-        var response = await _client.PostAsJsonAsync("/api/auth/refresh", new { refreshToken });
+        var response = await _client.PostAsJsonAsync("/api/v1/auth/refresh", new { refreshToken });
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
@@ -114,7 +114,7 @@ public class AuthControllerTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task Refresh_WithInvalidToken_ReturnsUnauthorized()
     {
-        var response = await _client.PostAsJsonAsync("/api/auth/refresh", new
+        var response = await _client.PostAsJsonAsync("/api/v1/auth/refresh", new
         {
             refreshToken = "token-que-no-existe"
         });
@@ -127,11 +127,11 @@ public class AuthControllerTests : IClassFixture<CustomWebApplicationFactory>
     {
         var (_, refreshToken) = await RegisterAndLoginAsync(UniqueEmail());
 
-        var first = await _client.PostAsJsonAsync("/api/auth/refresh", new { refreshToken });
+        var first = await _client.PostAsJsonAsync("/api/v1/auth/refresh", new { refreshToken });
         first.StatusCode.Should().Be(HttpStatusCode.OK);
 
         // El token ya fue rotado (revocado): reutilizarlo debe fallar
-        var second = await _client.PostAsJsonAsync("/api/auth/refresh", new { refreshToken });
+        var second = await _client.PostAsJsonAsync("/api/v1/auth/refresh", new { refreshToken });
 
         second.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
@@ -141,14 +141,14 @@ public class AuthControllerTests : IClassFixture<CustomWebApplicationFactory>
     {
         var (accessToken, refreshToken) = await RegisterAndLoginAsync(UniqueEmail());
 
-        var logoutRequest = new HttpRequestMessage(HttpMethod.Post, "/api/auth/logout");
+        var logoutRequest = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/logout");
         logoutRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
         var logoutResponse = await _client.SendAsync(logoutRequest);
 
         logoutResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
         // Tras el logout el refresh token queda revocado y no sirve para renovar
-        var refreshResponse = await _client.PostAsJsonAsync("/api/auth/refresh", new { refreshToken });
+        var refreshResponse = await _client.PostAsJsonAsync("/api/v1/auth/refresh", new { refreshToken });
 
         refreshResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
@@ -158,7 +158,7 @@ public class AuthControllerTests : IClassFixture<CustomWebApplicationFactory>
     {
         var email = UniqueEmail();
 
-        var registerResponse = await _client.PostAsJsonAsync("/api/auth/register", new
+        var registerResponse = await _client.PostAsJsonAsync("/api/v1/auth/register", new
         {
             firstName = "Test",
             lastName = "User",
@@ -167,7 +167,7 @@ public class AuthControllerTests : IClassFixture<CustomWebApplicationFactory>
         });
         registerResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var loginResponse = await _client.PostAsJsonAsync("/api/auth/login", new
+        var loginResponse = await _client.PostAsJsonAsync("/api/v1/auth/login", new
         {
             email,
             password = "Wrong123!"
@@ -182,10 +182,10 @@ public class AuthControllerTests : IClassFixture<CustomWebApplicationFactory>
         var email = UniqueEmail();
         var payload = new { firstName = "Test", lastName = "User", email, password = ValidPassword };
 
-        var first = await _client.PostAsJsonAsync("/api/auth/register", payload);
+        var first = await _client.PostAsJsonAsync("/api/v1/auth/register", payload);
         first.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var second = await _client.PostAsJsonAsync("/api/auth/register", payload);
+        var second = await _client.PostAsJsonAsync("/api/v1/auth/register", payload);
 
         second.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
@@ -193,7 +193,7 @@ public class AuthControllerTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task Register_WithMissingFields_ReturnsBadRequest()
     {
-        var response = await _client.PostAsJsonAsync("/api/auth/register", new { });
+        var response = await _client.PostAsJsonAsync("/api/v1/auth/register", new { });
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
@@ -201,7 +201,7 @@ public class AuthControllerTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task Login_WithNonExistingUser_ReturnsUnauthorized()
     {
-        var response = await _client.PostAsJsonAsync("/api/auth/login", new
+        var response = await _client.PostAsJsonAsync("/api/v1/auth/login", new
         {
             email = UniqueEmail(),
             password = ValidPassword

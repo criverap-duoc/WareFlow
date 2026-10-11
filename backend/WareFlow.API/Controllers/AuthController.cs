@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using WareFlow.Core.Models;
 using WareFlow.API.Services;
 using System.IdentityModel.Tokens.Jwt;
@@ -11,7 +12,7 @@ using Microsoft.IdentityModel.Tokens;
 namespace WareFlow.API.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/v1/[controller]")]
 public class AuthController : ControllerBase
 {
     private readonly UserManager<User> _userManager;
@@ -56,8 +57,10 @@ public class AuthController : ControllerBase
             var existingRoles = await _userManager.GetRolesAsync(user);
             if (!existingRoles.Any())
             {
-                var isFirstUser = _userManager.Users.Count() == 1;
-                await _userManager.AddToRoleAsync(user, isFirstUser ? "Admin" : "Vendedor");
+                // Si es el primer usuario del sistema, asignar Admin. Si no, Vendedor.
+                var userCount = await _userManager.Users.CountAsync();
+                var roleToAssign = userCount == 1 ? "Admin" : "Vendedor";
+                await _userManager.AddToRoleAsync(user, roleToAssign);
             }
 
             return Ok(new { message = "Usuario creado exitosamente", email = user.Email });

@@ -252,30 +252,30 @@ Password: Iceland12.
 ### Autenticación
 | Método | Endpoint | Auth | Descripción |
 |--------|----------|------|-------------|
-| `POST` | `/api/Auth/register` | ❌ | Registrar usuario |
-| `POST` | `/api/Auth/login` | ❌ | Iniciar sesión (retorna JWT) |
+| `POST` | `/api/v1/Auth/register` | ❌ | Registrar usuario |
+| `POST` | `/api/v1/Auth/login` | ❌ | Iniciar sesión (retorna JWT) |
 
 ### Productos
 | Método | Endpoint | Auth | Descripción |
 |--------|----------|------|-------------|
-| `GET` | `/api/Products` | ❌ | Listar productos activos |
-| `GET` | `/api/Products/{id}` | ❌ | Obtener producto por ID |
-| `POST` | `/api/Products` | ✅ | Crear producto |
-| `PUT` | `/api/Products/{id}` | ✅ | Actualizar producto |
-| `DELETE` | `/api/Products/{id}` | ✅ | Eliminar producto (soft delete) |
+| `GET` | `/api/v1/Products` | ❌ | Listar productos activos |
+| `GET` | `/api/v1/Products/{id}` | ❌ | Obtener producto por ID |
+| `POST` | `/api/v1/Products` | ✅ | Crear producto |
+| `PUT` | `/api/v1/Products/{id}` | ✅ | Actualizar producto |
+| `DELETE` | `/api/v1/Products/{id}` | ✅ | Eliminar producto (soft delete) |
 
 ### Órdenes
 | Método | Endpoint | Auth | Descripción |
 |--------|----------|------|-------------|
-| `GET` | `/api/Orders` | ✅ | Listar órdenes del usuario |
-| `GET` | `/api/Orders/{id}` | ✅ | Detalle de orden |
-| `POST` | `/api/Orders` | ✅ | Crear orden (valida stock) |
-| `PUT` | `/api/Orders/{id}/status` | ✅ | Actualizar estado de orden |
+| `GET` | `/api/v1/Orders` | ✅ | Listar órdenes del usuario |
+| `GET` | `/api/v1/Orders/{id}` | ✅ | Detalle de orden |
+| `POST` | `/api/v1/Orders` | ✅ | Crear orden (valida stock) |
+| `PUT` | `/api/v1/Orders/{id}/status` | ✅ | Actualizar estado de orden |
 
 ### Health
 | Método | Endpoint | Auth | Descripción |
 |--------|----------|------|-------------|
-| `GET` | `/api/Health` | ❌ | Health check de la API |
+| `GET` | `/api/v1/Health` | ❌ | Health check de la API |
 
 ---
 
@@ -317,7 +317,7 @@ Password: Iceland12.
 - [ ] Roles de usuario (Admin / Vendedor / Bodeguero)
 - [ ] Paginación server-side
 - [ ] Refresh tokens
-- [ ] Versionado de API (`/api/v1/`)
+- [x] Versionado de API (`/api/v1/`)
 
 ### Fase 2 — Ingeniería de producción
 - [ ] Tests unitarios e integración (xUnit + WebApplicationFactory)

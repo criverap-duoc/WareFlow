@@ -37,7 +37,7 @@ internal static class TestHelpers
         var client = factory.CreateClient();
         var email = UniqueEmail();
 
-        var registerResponse = await client.PostAsJsonAsync("/api/auth/register", new
+        var registerResponse = await client.PostAsJsonAsync("/api/v1/auth/register", new
         {
             firstName = "Test",
             lastName = "User",
@@ -61,7 +61,7 @@ internal static class TestHelpers
             await userManager.AddToRoleAsync(user!, role);
         }
 
-        var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new
+        var loginResponse = await client.PostAsJsonAsync("/api/v1/auth/login", new
         {
             email,
             password = ValidPassword
@@ -84,7 +84,7 @@ internal static class TestHelpers
         string? sku = null,
         string name = "Producto de prueba")
     {
-        var response = await client.PostAsJsonAsync("/api/products", new
+        var response = await client.PostAsJsonAsync("/api/v1/products", new
         {
             name,
             description = "Creado por tests de integración",
@@ -102,7 +102,7 @@ internal static class TestHelpers
     /// <summary>Lee el stock actual de un producto vía API (endpoint público).</summary>
     public static async Task<int> GetStockAsync(this HttpClient client, int productId)
     {
-        var response = await client.GetAsync($"/api/products/{productId}");
+        var response = await client.GetAsync($"/api/v1/products/{productId}");
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var payload = await response.Content.ReadFromJsonAsync<JsonElement>();

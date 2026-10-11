@@ -19,7 +19,7 @@ public class OrdersControllerTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task GetOrders_WithoutAuth_ReturnsUnauthorized()
     {
-        var response = await _client.GetAsync("/api/orders");
+        var response = await _client.GetAsync("/api/v1/orders");
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
@@ -27,7 +27,7 @@ public class OrdersControllerTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task CreateOrder_WithoutAuth_ReturnsUnauthorized()
     {
-        var response = await _client.PostAsJsonAsync("/api/orders", new
+        var response = await _client.PostAsJsonAsync("/api/v1/orders", new
         {
             items = new[] { new { productId = 1, quantity = 1 } }
         });
@@ -42,7 +42,7 @@ public class OrdersControllerTests : IClassFixture<CustomWebApplicationFactory>
         var created = await client.CreateProductAsync(stock: 10, price: 1500m);
         var productId = created.GetProperty("id").GetInt32();
 
-        var response = await client.PostAsJsonAsync("/api/orders", new
+        var response = await client.PostAsJsonAsync("/api/v1/orders", new
         {
             items = new[] { new { productId, quantity = 3 } },
             notes = "Orden de prueba"
@@ -66,7 +66,7 @@ public class OrdersControllerTests : IClassFixture<CustomWebApplicationFactory>
         var created = await client.CreateProductAsync(stock: 2);
         var productId = created.GetProperty("id").GetInt32();
 
-        var response = await client.PostAsJsonAsync("/api/orders", new
+        var response = await client.PostAsJsonAsync("/api/v1/orders", new
         {
             items = new[] { new { productId, quantity = 5 } }
         });
@@ -84,7 +84,7 @@ public class OrdersControllerTests : IClassFixture<CustomWebApplicationFactory>
     {
         using var client = await _factory.CreateAuthenticatedClientAsync();
 
-        var response = await client.PostAsJsonAsync("/api/orders", new
+        var response = await client.PostAsJsonAsync("/api/v1/orders", new
         {
             items = new[] { new { productId = 999999, quantity = 1 } }
         });
@@ -101,7 +101,7 @@ public class OrdersControllerTests : IClassFixture<CustomWebApplicationFactory>
         var created = await client.CreateProductAsync(stock: 5);
         var productId = created.GetProperty("id").GetInt32();
 
-        var createResponse = await client.PostAsJsonAsync("/api/orders", new
+        var createResponse = await client.PostAsJsonAsync("/api/v1/orders", new
         {
             items = new[] { new { productId, quantity = 1 } }
         });
@@ -109,7 +109,7 @@ public class OrdersControllerTests : IClassFixture<CustomWebApplicationFactory>
         var createdOrder = await createResponse.Content.ReadFromJsonAsync<JsonElement>();
         var orderId = createdOrder.GetProperty("id").GetInt32();
 
-        var response = await client.GetAsync($"/api/orders/{orderId}");
+        var response = await client.GetAsync($"/api/v1/orders/{orderId}");
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
@@ -125,7 +125,7 @@ public class OrdersControllerTests : IClassFixture<CustomWebApplicationFactory>
         var created = await client.CreateProductAsync(stock: 5);
         var productId = created.GetProperty("id").GetInt32();
 
-        var createResponse = await client.PostAsJsonAsync("/api/orders", new
+        var createResponse = await client.PostAsJsonAsync("/api/v1/orders", new
         {
             items = new[] { new { productId, quantity = 2 } }
         });
@@ -133,7 +133,7 @@ public class OrdersControllerTests : IClassFixture<CustomWebApplicationFactory>
         var orderId = createdOrder.GetProperty("id").GetInt32();
 
         // Pending (1) -> Processing (2)
-        var response = await client.PutAsJsonAsync($"/api/orders/{orderId}/status", new
+        var response = await client.PutAsJsonAsync($"/api/v1/orders/{orderId}/status", new
         {
             status = 2,
             notes = "En preparación"
@@ -143,7 +143,7 @@ public class OrdersControllerTests : IClassFixture<CustomWebApplicationFactory>
         var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
         payload.GetProperty("status").GetInt32().Should().Be(2);
 
-        var getResponse = await client.GetAsync($"/api/orders/{orderId}");
+        var getResponse = await client.GetAsync($"/api/v1/orders/{orderId}");
         var order = await getResponse.Content.ReadFromJsonAsync<JsonElement>();
         order.GetProperty("status").GetInt32().Should().Be(2);
     }
@@ -155,7 +155,7 @@ public class OrdersControllerTests : IClassFixture<CustomWebApplicationFactory>
         var created = await client.CreateProductAsync(stock: 5);
         var productId = created.GetProperty("id").GetInt32();
 
-        var createResponse = await client.PostAsJsonAsync("/api/orders", new
+        var createResponse = await client.PostAsJsonAsync("/api/v1/orders", new
         {
             items = new[] { new { productId, quantity = 1 } }
         });
@@ -163,7 +163,7 @@ public class OrdersControllerTests : IClassFixture<CustomWebApplicationFactory>
         var orderId = createdOrder.GetProperty("id").GetInt32();
 
         // Pending (1) -> Delivered (4): transición no permitida
-        var response = await client.PutAsJsonAsync($"/api/orders/{orderId}/status", new
+        var response = await client.PutAsJsonAsync($"/api/v1/orders/{orderId}/status", new
         {
             status = 4
         });
@@ -173,7 +173,7 @@ public class OrdersControllerTests : IClassFixture<CustomWebApplicationFactory>
         payload.GetProperty("message").GetString().Should().Contain("No se puede cambiar el estado");
 
         // El estado debe seguir siendo Pending (1).
-        var getResponse = await client.GetAsync($"/api/orders/{orderId}");
+        var getResponse = await client.GetAsync($"/api/v1/orders/{orderId}");
         var order = await getResponse.Content.ReadFromJsonAsync<JsonElement>();
         order.GetProperty("status").GetInt32().Should().Be(1);
     }
@@ -186,7 +186,7 @@ public class OrdersControllerTests : IClassFixture<CustomWebApplicationFactory>
         using var client = await _factory.CreateAuthenticatedClientAsync();
         await CreateOrdersAsync(client, 3);
 
-        var response = await client.GetAsync("/api/orders?page=1&pageSize=2");
+        var response = await client.GetAsync("/api/v1/orders?page=1&pageSize=2");
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         // Fase B.2: el listado devuelve un objeto paginado, no un array plano.
@@ -205,8 +205,8 @@ public class OrdersControllerTests : IClassFixture<CustomWebApplicationFactory>
         using var client = await _factory.CreateAuthenticatedClientAsync();
         await CreateOrdersAsync(client, 3);
 
-        var firstPage = await GetOrdersPayloadAsync(client, "/api/orders?page=1&pageSize=2");
-        var secondPage = await GetOrdersPayloadAsync(client, "/api/orders?page=2&pageSize=2");
+        var firstPage = await GetOrdersPayloadAsync(client, "/api/v1/orders?page=1&pageSize=2");
+        var secondPage = await GetOrdersPayloadAsync(client, "/api/v1/orders?page=2&pageSize=2");
 
         var firstIds = IdsOf(firstPage);
         var secondIds = IdsOf(secondPage);
@@ -227,7 +227,7 @@ public class OrdersControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         for (var i = 0; i < count; i++)
         {
-            var response = await client.PostAsJsonAsync("/api/orders", new
+            var response = await client.PostAsJsonAsync("/api/v1/orders", new
             {
                 items = new[] { new { productId, quantity = 1 } }
             });

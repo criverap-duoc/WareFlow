@@ -17,7 +17,7 @@ public class HealthControllerTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task Get_ReturnsOkStatusCode()
     {
-        var response = await _client.GetAsync("/api/health");
+        var response = await _client.GetAsync("/api/v1/health");
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
@@ -25,7 +25,7 @@ public class HealthControllerTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task Get_ReturnsOkStatusPayload()
     {
-        var response = await _client.GetAsync("/api/health");
+        var response = await _client.GetAsync("/api/v1/health");
         var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
 
         payload.GetProperty("status").GetString().Should().Be("OK");

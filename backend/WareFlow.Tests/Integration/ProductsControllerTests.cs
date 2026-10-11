@@ -23,7 +23,7 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
         using var isolatedFactory = new IsolatedWebApplicationFactory();
         var client = isolatedFactory.CreateClient();
 
-        var response = await client.GetAsync("/api/products");
+        var response = await client.GetAsync("/api/v1/products");
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         // Fase B.2: el listado devuelve un objeto paginado, no un array plano.
@@ -41,7 +41,7 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
     [Fact]
     public async Task CreateProduct_WithoutAuth_ReturnsUnauthorized()
     {
-        var response = await _client.PostAsJsonAsync("/api/products", new
+        var response = await _client.PostAsJsonAsync("/api/v1/products", new
         {
             name = "Sin auth",
             description = "No debería crearse",
@@ -61,7 +61,7 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
         using var client = await _factory.CreateAuthenticatedClientAsync();
         var sku = TestHelpers.UniqueSku("WF");
 
-        var response = await client.PostAsJsonAsync("/api/products", new
+        var response = await client.PostAsJsonAsync("/api/v1/products", new
         {
             name = "Teclado mecánico",
             description = "Producto de prueba",
@@ -97,10 +97,10 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
             category = "Testing"
         };
 
-        var first = await client.PostAsJsonAsync("/api/products", body);
+        var first = await client.PostAsJsonAsync("/api/v1/products", body);
         first.StatusCode.Should().Be(HttpStatusCode.Created);
 
-        var second = await client.PostAsJsonAsync("/api/products", body);
+        var second = await client.PostAsJsonAsync("/api/v1/products", body);
 
         second.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         var payload = await second.Content.ReadFromJsonAsync<JsonElement>();
@@ -112,7 +112,7 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
     {
         using var client = await _factory.CreateAuthenticatedClientAsync();
 
-        var response = await client.PostAsJsonAsync("/api/products", new
+        var response = await client.PostAsJsonAsync("/api/v1/products", new
         {
             name = "Producto sin precio",
             description = "Precio inválido",
@@ -133,7 +133,7 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
         var created = await client.CreateProductAsync(stock: 4, price: 2500m);
         var productId = created.GetProperty("id").GetInt32();
 
-        var response = await _client.GetAsync($"/api/products/{productId}");
+        var response = await _client.GetAsync($"/api/v1/products/{productId}");
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
@@ -144,7 +144,7 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
     [Fact]
     public async Task GetProductById_WhenProductDoesNotExist_ReturnsNotFound()
     {
-        var response = await _client.GetAsync("/api/products/999999");
+        var response = await _client.GetAsync("/api/v1/products/999999");
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
         var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
@@ -158,7 +158,7 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
         var created = await client.CreateProductAsync(stock: 5, price: 1000m);
         var productId = created.GetProperty("id").GetInt32();
 
-        var response = await client.PutAsJsonAsync($"/api/products/{productId}", new
+        var response = await client.PutAsJsonAsync($"/api/v1/products/{productId}", new
         {
             name = "Nombre actualizado",
             description = "Descripción actualizada",
@@ -169,7 +169,7 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var getResponse = await _client.GetAsync($"/api/products/{productId}");
+        var getResponse = await _client.GetAsync($"/api/v1/products/{productId}");
         var payload = await getResponse.Content.ReadFromJsonAsync<JsonElement>();
         payload.GetProperty("name").GetString().Should().Be("Nombre actualizado");
         payload.GetProperty("price").GetDecimal().Should().Be(1990m);
@@ -184,7 +184,7 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
         var created = await client.CreateProductAsync(stock: 2);
         var productId = created.GetProperty("id").GetInt32();
 
-        var response = await client.DeleteAsync($"/api/products/{productId}");
+        var response = await client.DeleteAsync($"/api/v1/products/{productId}");
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var product = await _factory.FindProductInDatabaseAsync(productId);
@@ -199,12 +199,12 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
         var created = await client.CreateProductAsync(stock: 2);
         var productId = created.GetProperty("id").GetInt32();
 
-        var deleteResponse = await client.DeleteAsync($"/api/products/{productId}");
+        var deleteResponse = await client.DeleteAsync($"/api/v1/products/{productId}");
         deleteResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
         // Se filtra por SKU para que el resultado no dependa de la paginación.
         var sku = created.GetProperty("sku").GetString();
-        var response = await _client.GetAsync($"/api/products?search={sku}");
+        var response = await _client.GetAsync($"/api/v1/products?search={sku}");
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
@@ -223,7 +223,7 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
         using var client = await isolatedFactory.CreateAuthenticatedClientAsync();
         await SeedProductsAsync(client, 12);
 
-        var payload = await GetProductsPayloadAsync(client, "/api/products?page=1&pageSize=5");
+        var payload = await GetProductsPayloadAsync(client, "/api/v1/products?page=1&pageSize=5");
 
         payload.GetProperty("page").GetInt32().Should().Be(1);
         payload.GetProperty("pageSize").GetInt32().Should().Be(5);
@@ -241,8 +241,8 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
         using var client = await isolatedFactory.CreateAuthenticatedClientAsync();
         await SeedProductsAsync(client, 12);
 
-        var firstPage = await GetProductsPayloadAsync(client, "/api/products?page=1&pageSize=5");
-        var secondPage = await GetProductsPayloadAsync(client, "/api/products?page=2&pageSize=5");
+        var firstPage = await GetProductsPayloadAsync(client, "/api/v1/products?page=1&pageSize=5");
+        var secondPage = await GetProductsPayloadAsync(client, "/api/v1/products?page=2&pageSize=5");
 
         var firstIds = IdsOf(firstPage);
         var secondIds = IdsOf(secondPage);
@@ -263,7 +263,7 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
         using var client = await isolatedFactory.CreateAuthenticatedClientAsync();
         await SeedProductsAsync(client, 3);
 
-        var payload = await GetProductsPayloadAsync(client, "/api/products?page=1&pageSize=500");
+        var payload = await GetProductsPayloadAsync(client, "/api/v1/products?page=1&pageSize=500");
 
         payload.GetProperty("pageSize").GetInt32().Should().Be(100);
         payload.GetProperty("totalItems").GetInt32().Should().Be(3);
@@ -280,7 +280,7 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
         await client.CreateProductAsync(name: "Mouse inalámbrico");
         await client.CreateProductAsync(name: "Laptop ultrabook 15 pulgadas");
 
-        var payload = await GetProductsPayloadAsync(client, "/api/products?search=laptop");
+        var payload = await GetProductsPayloadAsync(client, "/api/v1/products?search=laptop");
 
         payload.GetProperty("totalItems").GetInt32().Should().Be(2);
         var names = payload.GetProperty("items").EnumerateArray()
@@ -301,7 +301,7 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
         var productId = created.GetProperty("id").GetInt32();
 
         using var bodeguero = await isolatedFactory.CreateAuthenticatedClientAsync("Bodeguero");
-        var response = await bodeguero.PutAsJsonAsync($"/api/products/{productId}", new
+        var response = await bodeguero.PutAsJsonAsync($"/api/v1/products/{productId}", new
         {
             stock = 9,
             minimumStock = 3
@@ -325,7 +325,7 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
         var productId = created.GetProperty("id").GetInt32();
 
         using var bodeguero = await isolatedFactory.CreateAuthenticatedClientAsync("Bodeguero");
-        var response = await bodeguero.PutAsJsonAsync($"/api/products/{productId}", new
+        var response = await bodeguero.PutAsJsonAsync($"/api/v1/products/{productId}", new
         {
             name = "Nombre cambiado por el bodeguero",
             stock = 9
