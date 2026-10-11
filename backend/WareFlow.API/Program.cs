@@ -9,6 +9,7 @@ using WareFlow.Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
 using WareFlow.Core.Models;
 using WareFlow.API.Data;
+using WareFlow.API.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -86,6 +87,9 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
+// Fase B.3a: emisión y rotación de refresh tokens
+builder.Services.AddScoped<RefreshTokenService>();
+
 // CORS
 builder.Services.AddCors(options =>
 {
@@ -128,15 +132,23 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
-// Crear base de datos si no existe
+// Aplicar migraciones pendientes al arrancar (crea la base de datos si no existe).
+// EnsureCreated() ya no se usa: crea el esquema a partir del modelo actual e ignora
+// las migraciones, por lo que una base recién creada (clon del repo, volumen Docker
+// nuevo) quedaría sin tablas posteriores como RefreshTokens.
+// Migrate() es una API relacional: los tests de integración usan EF Core InMemory
+// (su esquema lo crea CustomWebApplicationFactory con EnsureCreated).
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    dbContext.Database.EnsureCreated();
+    if (dbContext.Database.IsRelational())
+    {
+        dbContext.Database.Migrate();
+    }
 }
 
 // Fase B.1: roles de usuario. Deben existir antes de asignar roles: la tabla
-// AspNetRoles ya fue creada por EnsureCreated en el bloque anterior. El seeder
+// AspNetRoles ya fue creada por Migrate en el bloque anterior. El seeder
 // serializa la creación para evitar roles duplicados cuando arrancan varios
 // hosts en paralelo (tests de integración y réplicas en Docker).
 using (var scope = app.Services.CreateScope())

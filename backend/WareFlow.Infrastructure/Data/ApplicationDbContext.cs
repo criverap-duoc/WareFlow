@@ -15,6 +15,7 @@ namespace WareFlow.Infrastructure.Data
         public DbSet<Order> Orders { get; set; }
         public DbSet<OrderItem> OrderItems { get; set; }
         public DbSet<InventoryMovement> InventoryMovements { get; set; }
+        public DbSet<RefreshToken> RefreshTokens { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -102,6 +103,26 @@ namespace WareFlow.Infrastructure.Data
                 entity.HasOne(im => im.Order)
                     .WithMany()
                     .HasForeignKey(im => im.OrderId);
+            });
+
+            // Configurar RefreshToken (Fase B.3a)
+            builder.Entity<RefreshToken>(entity =>
+            {
+                entity.HasOne(rt => rt.User)
+                    .WithMany()
+                    .HasForeignKey(rt => rt.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                // El índice único evita duplicados y acelera la búsqueda por hash.
+                entity.HasIndex(rt => rt.Token)
+                    .IsUnique();
+
+                entity.Property(rt => rt.Token)
+                    .HasMaxLength(128)
+                    .IsRequired();
+
+                entity.Property(rt => rt.ReplacedByToken)
+                    .HasMaxLength(128);
             });
 
             // Configurar User

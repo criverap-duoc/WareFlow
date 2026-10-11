@@ -44,11 +44,14 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       const response = await authService.login({ email, password });
-      
-      const { token, email: userEmail, firstName, lastName, role } = response.data;
+
+      // Fase B.3a: el login devuelve accessToken (15 min) + refreshToken (7 días).
+      // El access token se sigue guardando como "token" por compatibilidad.
+      const { accessToken, refreshToken, email: userEmail, firstName, lastName, role } = response.data;
       const userData = { email: userEmail, firstName, lastName, role };
-      
-      localStorage.setItem('token', token);
+
+      localStorage.setItem('token', accessToken);
+      localStorage.setItem('refreshToken', refreshToken);
       localStorage.setItem('user', JSON.stringify(userData));
       setUser(userData);
       return { success: true };
@@ -86,9 +89,16 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => {
-    authService.logout();
-    setUser(null);
+  const logout = async () => {
+    try {
+      // Revoca los refresh tokens del usuario en el backend
+      await authService.logout();
+    } catch {
+      // Si el token ya expiró (401) igual cerramos la sesión local
+    } finally {
+      authService.clearSession();
+      setUser(null);
+    }
   };
 
   const value = {

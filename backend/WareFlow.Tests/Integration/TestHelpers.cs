@@ -69,7 +69,7 @@ internal static class TestHelpers
         loginResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var payload = await loginResponse.Content.ReadFromJsonAsync<JsonElement>();
-        var token = payload.GetProperty("token").GetString();
+        var token = payload.GetProperty("accessToken").GetString();
         token.Should().NotBeNullOrEmpty();
 
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);

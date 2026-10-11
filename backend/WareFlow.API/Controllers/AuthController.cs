@@ -1,6 +1,8 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Identity;
 using WareFlow.Core.Models;
+using WareFlow.API.Services;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -15,15 +17,18 @@ public class AuthController : ControllerBase
     private readonly UserManager<User> _userManager;
     private readonly SignInManager<User> _signInManager;
     private readonly IConfiguration _configuration;
+    private readonly RefreshTokenService _refreshTokenService;
 
     public AuthController(
         UserManager<User> userManager,
         SignInManager<User> signInManager,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        RefreshTokenService refreshTokenService)
     {
         _userManager = userManager;
         _signInManager = signInManager;
         _configuration = configuration;
+        _refreshTokenService = refreshTokenService;
     }
 
     [HttpPost("register")]
@@ -75,20 +80,77 @@ public class AuthController : ControllerBase
 
         if (result.Succeeded)
         {
-            var token = await GenerateJwtToken(user);
+            // Fase B.3a: access token de vida corta (15 min) + refresh token de 7 días
+            // para renovarlo sin volver a pedir credenciales.
+            var accessToken = await GenerateJwtToken(user);
+            var refreshToken = await _refreshTokenService.GenerateAsync(user.Id);
+
             return Ok(new
             {
-                token = token,
+                accessToken,
+                refreshToken,
                 email = user.Email,
                 firstName = user.FirstName,
                 lastName = user.LastName,
                 role = (await _userManager.GetRolesAsync(user)).FirstOrDefault() ?? "Sin rol",
-                expiresIn = DateTime.UtcNow.AddDays(7)
+                expiresIn = AccessTokenExpireSeconds
             });
         }
 
         return Unauthorized(new { message = "Credenciales inválidas" });
     }
+
+    /// <summary>
+    /// Renueva el access token a partir de un refresh token válido. El token usado se
+    /// revoca y se reemplaza por uno nuevo (rotación), por lo que reutilizarlo da 401.
+    /// </summary>
+    [HttpPost("refresh")]
+    [AllowAnonymous]
+    public async Task<IActionResult> Refresh([FromBody] RefreshRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.RefreshToken))
+            return BadRequest(new { message = "Refresh token requerido" });
+
+        var storedToken = await _refreshTokenService.ValidateAsync(request.RefreshToken);
+        if (storedToken == null)
+            return Unauthorized(new { message = "Refresh token inválido o expirado" });
+
+        var user = storedToken.User;
+        var newAccessToken = await GenerateJwtToken(user);
+        var newRefreshToken = await _refreshTokenService.RotateAsync(storedToken);
+        var roles = await _userManager.GetRolesAsync(user);
+
+        return Ok(new
+        {
+            accessToken = newAccessToken,
+            refreshToken = newRefreshToken,
+            email = user.Email,
+            firstName = user.FirstName,
+            lastName = user.LastName,
+            role = roles.FirstOrDefault() ?? "Sin rol",
+            expiresIn = AccessTokenExpireSeconds
+        });
+    }
+
+    /// <summary>Revoca todos los refresh tokens activos del usuario (cierre de sesión).</summary>
+    [HttpPost("logout")]
+    [Authorize]
+    public async Task<IActionResult> Logout()
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId))
+            return Unauthorized();
+
+        await _refreshTokenService.RevokeAllForUserAsync(userId);
+        return Ok(new { message = "Sesión cerrada correctamente" });
+    }
+
+    /// <summary>Vigencia del access token en minutos (Jwt:AccessExpireMinutes, 15 por defecto).</summary>
+    private int AccessTokenExpireMinutes =>
+        Convert.ToInt32(_configuration["Jwt:AccessExpireMinutes"] ?? "15");
+
+    /// <summary>Misma vigencia en segundos, que es lo que el cliente espera en `expiresIn`.</summary>
+    private int AccessTokenExpireSeconds => AccessTokenExpireMinutes * 60;
 
     private async Task<string> GenerateJwtToken(User user)
     {
@@ -111,7 +173,7 @@ public class AuthController : ControllerBase
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"] ?? ""));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-        var expires = DateTime.UtcNow.AddDays(Convert.ToDouble(_configuration["Jwt:ExpireDays"] ?? "7"));
+        var expires = DateTime.UtcNow.AddMinutes(AccessTokenExpireMinutes);
 
         var token = new JwtSecurityToken(
             issuer: _configuration["Jwt:Issuer"],
@@ -137,4 +199,9 @@ public class LoginModel
 {
     public string Email { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
+}
+
+public class RefreshRequest
+{
+    public string RefreshToken { get; set; } = string.Empty;
 }
