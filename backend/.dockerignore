@@ -5,7 +5,6 @@
 **/*.user
 **/appsettings.Development.json
 **/appsettings.Local.json
-**/Migrations/*.Designer.cs
 .git
 .gitignore
 README.md
