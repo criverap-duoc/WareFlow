@@ -53,8 +53,16 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 // Base de datos
+// EnableRetryOnFailure: Azure SQL Serverless entra en auto-pause y la primera
+// conexión falla con error transitorio (40613). Con 5 reintentos y hasta 30s de
+// espera entre ellos, la app sobrevive al despertar de la base de datos.
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlServer(
+        builder.Configuration.GetConnectionString("DefaultConnection"),
+        sqlOptions => sqlOptions.EnableRetryOnFailure(
+            maxRetryCount: 5,
+            maxRetryDelay: TimeSpan.FromSeconds(30),
+            errorNumbersToAdd: null)));
 
 // Identity
 builder.Services.AddIdentity<User, IdentityRole>()
@@ -145,9 +153,20 @@ app.MapControllers();
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
     if (dbContext.Database.IsRelational())
     {
-        dbContext.Database.Migrate();
+        try
+        {
+            dbContext.Database.Migrate();
+        }
+        catch (Exception ex)
+        {
+            // La DB dormida (Azure SQL Serverless, auto-pause) no debe tumbar el
+            // proceso: la app arranca igual, /Health responde 200 y los endpoints
+            // que usan DB reintentan vía EnableRetryOnFailure del DbContext.
+            logger.LogError(ex, "Error al aplicar migraciones al arrancar. La app seguirá corriendo y reintentará en el primer request.");
+        }
     }
 }
 
