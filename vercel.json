@@ -2,6 +2,9 @@
   "buildCommand": "cd frontend && pnpm install && pnpm build",
   "outputDirectory": "frontend/dist",
   "cleanUrls": false,
+  "engines": {
+    "node": "24.x"
+  },
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ]
