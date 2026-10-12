@@ -1,6 +1,7 @@
 # 📦 WareFlow — Sistema de Gestión de Inventarios y Órdenes
 
 [![CI](https://github.com/criverap-duoc/WareFlow/actions/workflows/ci.yml/badge.svg)](https://github.com/criverap-duoc/WareFlow/actions/workflows/ci.yml)
+[![Live Demo](https://img.shields.io/badge/demo-live-success)](https://wareflow-vercel.vercel.app)
 [![.NET](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)](https://react.dev/)
 [![Entity Framework Core](https://img.shields.io/badge/EF%20Core-9.0.3-512BD4?logo=dotnet&logoColor=white)](https://learn.microsoft.com/ef/core/)
@@ -186,7 +187,7 @@ Ver [docs/adr/](docs/adr/) para las decisiones arquitectónicas.
 
 ### Base de datos
 - **Dev:** SQL Server LocalDB (`MSSQLLocalDB`)
-- **Prod (planificado):** Azure SQL Database
+- **Prod:** Azure SQL Database (Brazil South, Free Tier)
 
 ---
 
@@ -194,11 +195,16 @@ Ver [docs/adr/](docs/adr/) para las decisiones arquitectónicas.
 
 | Servicio | URL |
 |----------|-----|
-| Frontend (Vercel) | `<PENDIENTE_URL_VERCEL>` |
-| Backend API (Azure App Service) | `<PENDIENTE_URL_AZURE>` |
-| Swagger | `<PENDIENTE_URL_AZURE>/swagger` |
+| Frontend (Vercel) | [wareflow-vercel.vercel.app](https://wareflow-vercel.vercel.app) |
+| Backend API (Azure App Service) | https://wareflow-api-csvera-eweqd3c9ctanbvcj.brazilsouth-01.azurewebsites.net |
+| Swagger | https://wareflow-api-csvera-eweqd3c9ctanbvcj.brazilsouth-01.azurewebsites.net/swagger |
 
-> *(Placeholders — se completan al cerrar la Fase 5: despliegue en Azure + Vercel.)*
+> La base de datos está en plan **Azure SQL Free Tier (serverless)**: entra en
+> *auto-pause* tras un periodo de inactividad, por lo que la primera petición puede
+> tardar unos segundos mientras despierta (el backend tiene reintentos automáticos
+> configurados para ese caso).
+>
+> Usuario demo: `cri.verap@duocuc.cl` / `Iceland12.`
 
 ---
 
@@ -346,7 +352,8 @@ Una vez grabados, cada GIF se embebe con `![descripción](docs/gifs/0X-nombre.gi
 | Tests automatizados | ✅ 42 tests |
 | Docker | ✅ |
 | CI/CD | ✅ |
-| Despliegue en la nube | ⏳ Pendiente |
+| Despliegue en la nube | ✅ Azure + Vercel |
+| Demo pública | ✅ https://wareflow-vercel.vercel.app |
 
 **Progreso global:** ~82%
 
@@ -384,8 +391,8 @@ Una vez grabados, cada GIF se embebe con `![descripción](docs/gifs/0X-nombre.gi
 - [ ] Simulación de flujo de pago Webpay
 
 ### Fase 5 — Narrativa y despliegue
-- [ ] Despliegue en Azure App Service + Azure SQL
-- [ ] Frontend en Vercel
+- [x] Despliegue en Azure App Service + Azure SQL
+- [x] Frontend en Vercel
 - [ ] Video demo (2 min)
 - [x] Diagrama de arquitectura
 - [x] ADRs (Architecture Decision Records)
