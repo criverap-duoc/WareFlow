@@ -284,8 +284,8 @@ pnpm dev
 
 ### 6. Credenciales de prueba
 ```
-Email: cri.verap@duocuc.cl
-Password: Iceland12.
+Email: test@test.com
+Password: Test123.
 ```
 > Si no funciona, registra un usuario nuevo desde `/login`. Las contraseñas deben tener mínimo 6 caracteres, una mayúscula, un número y un carácter especial.
 
