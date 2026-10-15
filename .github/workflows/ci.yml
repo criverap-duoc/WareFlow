@@ -39,12 +39,15 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 11
+          # Sin 'version': el action lee el campo packageManager del package.json
+          # indicado (pnpm@10.15.0), evitando el error "Multiple versions of pnpm
+          # specified" que provocaba tener 'version: 11' aquí.
+          package_json_file: frontend/package.json
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24'
           cache: 'pnpm'
           cache-dependency-path: frontend/pnpm-lock.yaml
 

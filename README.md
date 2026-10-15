@@ -399,6 +399,26 @@ Una vez grabados, cada GIF se embebe con `![descripción](docs/gifs/0X-nombre.gi
 
 ---
 
+## ⚠️ Limitaciones del tier gratuito
+
+Este proyecto usa exclusivamente servicios gratuitos:
+
+- **Backend (Azure App Service F1):** tiene 60 minutos de CPU por día
+  y se duerme tras 20 minutos de inactividad. El primer request después
+  de dormir puede tardar 20-60 segundos (cold start). Si ves un error
+  503 o de CORS, espera un minuto y reintenta.
+
+- **Base de datos (Azure SQL Serverless):** se pausa tras 60 minutos
+  de inactividad. El primer query después de pausar puede tardar
+  10-30 segundos.
+
+- **Frontend (Vercel Hobby):** sin límites relevantes para este uso.
+
+Para producción real, se recomienda subir a un tier sin cold start
+(App Service B1, Azure SQL Provisioned).
+
+---
+
 ## 🤝 Contribuciones
 
 Este es un proyecto de portafolio personal, pero sugerencias y feedback son bienvenidos vía issues.
