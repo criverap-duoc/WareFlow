@@ -52,4 +52,4 @@
 - Backend: http://localhost:5276
 - Swagger: http://localhost:5276/swagger
 - Frontend: http://localhost:5173
-- Usuario demo: cri.verap@duocuc.cl / Iceland12.
+- Usuario demo: test@test.com / Test123.

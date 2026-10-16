@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using FluentAssertions;
+using WareFlow.Core.Enums;
 
 namespace WareFlow.Tests.Integration;
 
@@ -92,6 +93,35 @@ public class OrdersControllerTests : IClassFixture<CustomWebApplicationFactory>
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
         payload.GetProperty("message").GetString().Should().Contain("no encontrado");
+    }
+
+    [Fact]
+    public async Task CreateOrder_AssignsOrderIdToInventoryMovement()
+    {
+        using var client = await _factory.CreateAuthenticatedClientAsync();
+        var created = await client.CreateProductAsync(stock: 5, price: 1000m);
+        var productId = created.GetProperty("id").GetInt32();
+
+        var response = await client.PostAsJsonAsync("/api/v1/orders", new
+        {
+            items = new[] { new { productId, quantity = 2 } }
+        });
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var order = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var orderId = order.GetProperty("id").GetInt32();
+        var orderNumber = order.GetProperty("orderNumber").GetString()!;
+
+        // El movimiento de venta debe quedar ligado a la orden (OrderId con valor),
+        // no solo descrito en el Reason: es la trazabilidad orden ↔ movimiento.
+        var movements = await _factory.FindMovementsByOrderIdAsync(orderId);
+
+        movements.Should().ContainSingle();
+        movements[0].OrderId.Should().Be(orderId);
+        movements[0].ProductId.Should().Be(productId);
+        movements[0].Type.Should().Be(MovementType.Sale);
+        movements[0].Quantity.Should().Be(2);
+        movements[0].Reason.Should().Be($"Venta - Orden #{orderNumber}");
     }
 
     [Fact]

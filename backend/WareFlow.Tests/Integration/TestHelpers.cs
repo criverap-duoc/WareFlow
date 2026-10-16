@@ -122,4 +122,21 @@ internal static class TestHelpers
 
         return await context.Products.AsNoTracking().FirstOrDefaultAsync(p => p.Id == productId);
     }
+
+    /// <summary>
+    /// Devuelve los movimientos de inventario de una orden consultando el DbContext
+    /// de la factory: la API no expone el campo OrderId, que es justamente lo que
+    /// estos tests necesitan verificar (trazabilidad orden ↔ movimiento).
+    /// </summary>
+    public static async Task<List<InventoryMovement>> FindMovementsByOrderIdAsync(
+        this CustomWebApplicationFactory factory,
+        int orderId)
+    {
+        using var scope = factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        return await context.InventoryMovements.AsNoTracking()
+            .Where(m => m.OrderId == orderId)
+            .ToListAsync();
+    }
 }

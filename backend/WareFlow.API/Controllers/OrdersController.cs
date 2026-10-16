@@ -204,7 +204,9 @@ public class OrdersController : ControllerBase
     [Authorize(Roles = "Admin,Vendedor")]
     public async Task<IActionResult> CreateOrder([FromBody] CreateOrderDto orderDto)
     {
-        // Sin transacción explícita: SaveChangesAsync ya es atómico (EF Core lo
+        // Dos SaveChangesAsync: el primero persiste la orden (items + stock) y el
+        // segundo los movimientos, que necesitan el Id recién generado. Sin
+        // transacción explícita: cada SaveChangesAsync ya es atómico (EF Core lo
         // envuelve en una transacción implícita) y el proveedor InMemory que usan
         // los tests de integración no soporta transacciones.
         try
@@ -244,18 +246,6 @@ public class OrdersController : ControllerBase
                 };
                 orderItems.Add(orderItem);
                 totalAmount += orderItem.Subtotal;
-
-                // Registrar movimiento de inventario
-                var movement = new InventoryMovement
-                {
-                    ProductId = item.ProductId,
-                    Type = MovementType.Sale,
-                    Quantity = item.Quantity,
-                    Reason = $"Venta - Orden #{orderDto.OrderNumber ?? "Pendiente"}",
-                    MovementDate = DateTime.UtcNow,
-                    UserId = userId
-                };
-                _context.InventoryMovements.Add(movement);
             }
 
             // Los precios del catálogo incluyen IVA: el total de los items ya es el
@@ -279,6 +269,25 @@ public class OrdersController : ControllerBase
             };
 
             _context.Orders.Add(order);
+            await _context.SaveChangesAsync();
+
+            // Los movimientos se registran después del primer SaveChanges: en ese
+            // momento la orden ya tiene Id, así que OrderId queda poblado y se
+            // mantiene la trazabilidad orden ↔ movimiento.
+            foreach (var orderItem in order.OrderItems)
+            {
+                _context.InventoryMovements.Add(new InventoryMovement
+                {
+                    ProductId = orderItem.ProductId,
+                    Type = MovementType.Sale,
+                    Quantity = orderItem.Quantity,
+                    Reason = $"Venta - Orden #{order.OrderNumber}",
+                    MovementDate = DateTime.UtcNow,
+                    UserId = userId,
+                    OrderId = order.Id
+                });
+            }
+
             await _context.SaveChangesAsync();
 
             return CreatedAtAction(nameof(GetOrder), new { id = order.Id }, new
