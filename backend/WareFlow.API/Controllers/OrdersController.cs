@@ -431,7 +431,6 @@ public class CreateOrderDto
 {
     public List<OrderItemDto> Items { get; set; } = new List<OrderItemDto>();
     public string? Notes { get; set; }
-    public string? OrderNumber { get; set; }
 }
 
 public class OrderItemDto

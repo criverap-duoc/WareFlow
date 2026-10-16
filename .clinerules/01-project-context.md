@@ -4,7 +4,7 @@
 - Backend: .NET 10 (ASP.NET Core), EF Core 9, SQL Server LocalDB (dev) / Azure SQL (prod planificado)
 - Frontend: React 19 + Vite 8, JavaScript (NO TypeScript por ahora), Context API, Axios
 - Auth: JWT Bearer (15 min) + refresh tokens (7 días, rotación), Identity para usuarios
-- Testing: xUnit + WebApplicationFactory (42 tests)
+- Testing: xUnit + WebApplicationFactory (47 tests)
 - IA planificada: ML.NET (predicción demanda) + OpenAI API (anomalías)
 
 ## Arquitectura
