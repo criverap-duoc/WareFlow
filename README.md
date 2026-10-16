@@ -136,7 +136,7 @@ User ──1:N──> Order ──1:N──> OrderItem ──N:1──> Product
 
 ---
 
-## 🏗️ Arquitectura
+## 🗺️ Diagrama de arquitectura
 
 WareFlow usa una **Clean Architecture simplificada en 3 capas**: `WareFlow.API`
 (HTTP, autenticación, Swagger), `WareFlow.Core` (entidades y enums del dominio,
@@ -355,7 +355,7 @@ Una vez grabados, cada GIF se embebe con `![descripción](docs/gifs/0X-nombre.gi
 | Despliegue en la nube | ✅ Azure + Vercel |
 | Demo pública | ✅ https://wareflow-vercel.vercel.app |
 
-**Progreso global:** ~82%
+**Progreso global:** ~95%
 
 ---
 

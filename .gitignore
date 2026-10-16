@@ -54,3 +54,6 @@ package-lock.json
 *.swo
 *~
 .DS_Store
+
+# Publish output (generado por dotnet publish)
+backend/WareFlow.API/publish/
