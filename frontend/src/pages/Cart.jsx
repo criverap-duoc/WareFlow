@@ -8,7 +8,6 @@ import { getDefaultImage } from '../lib/images';
 import { PageHeader } from '../components/layout/PageHeader';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
-import { Separator } from '../components/ui/separator';
 import {
   Sheet,
   SheetContent,
@@ -68,24 +67,27 @@ function Cart() {
 
   const summary = (
     <>
-      <div className="flex justify-between text-sm">
-        <span className="text-muted-foreground">Neto</span>
-        <span className="num">{formatCLP(iva.neto)}</span>
+      <div className="space-y-1 text-sm">
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Neto</span>
+          <span className="num">{formatCLP(iva.neto)}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">IVA (19%)</span>
+          <span className="num">{formatCLP(iva.iva)}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Envío</span>
+          <span className="num">Gratis</span>
+        </div>
+        <div className="flex justify-between border-t pt-2 text-base font-semibold">
+          <span>Total</span>
+          <span className="num">{formatCLP(iva.total)}</span>
+        </div>
       </div>
-      <div className="flex justify-between text-sm">
-        <span className="text-muted-foreground">IVA (19%)</span>
-        <span className="num">{formatCLP(iva.iva)}</span>
-      </div>
-      <div className="flex justify-between text-sm">
-        <span className="text-muted-foreground">Envío</span>
-        <span className="num">Gratis</span>
-      </div>
-      <Separator />
-      <div className="flex justify-between text-base font-semibold">
-        <span>Total</span>
-        <span className="num">{formatCLP(iva.total)}</span>
-      </div>
-      <p className="text-xs text-muted-foreground">Precios incluyen IVA</p>
+      <p className="text-xs text-muted-foreground">
+        Los precios del catálogo incluyen IVA
+      </p>
       <Button className="w-full" onClick={handleCheckout} disabled={loading}>
         {loading ? 'Procesando…' : 'Finalizar compra'}
       </Button>

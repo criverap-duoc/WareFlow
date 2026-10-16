@@ -59,8 +59,8 @@ function Login() {
   };
 
   const handleDemo = () => {
-    setEmail('cri.verap@duocuc.cl');
-    setPassword('Iceland12.');
+    setEmail('test@test.com');
+    setPassword('Test123.');
     setIsLogin(true);
     setError('');
     setSuccess('');

@@ -93,6 +93,22 @@ builder.Services.AddAuthentication(options =>
         ValidateLifetime = true,
         ClockSkew = TimeSpan.Zero
     };
+
+    // El DTE se abre con window.open (pestaña nueva), que no puede enviar el
+    // header Authorization: se acepta el token también por query string
+    // (?access_token=...) para ese caso puntual.
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            if (!string.IsNullOrEmpty(accessToken))
+            {
+                context.Token = accessToken;
+            }
+            return Task.CompletedTask;
+        }
+    };
 });
 
 // Fase B.3a: emisión y rotación de refresh tokens

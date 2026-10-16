@@ -217,7 +217,132 @@ public class OrdersControllerTests : IClassFixture<CustomWebApplicationFactory>
         secondIds.Intersect(firstIds).Should().BeEmpty();
     }
 
+    // ---------------- IVA y DTE (Fase 3) ----------------
+
+    [Fact]
+    public async Task CreateOrder_CalculatesIvaAs19PercentOfNet()
+    {
+        using var client = await _factory.CreateAuthenticatedClientAsync();
+        var created = await client.CreateProductAsync(stock: 5, price: 1500m);
+        var productId = created.GetProperty("id").GetInt32();
+
+        var response = await client.PostAsJsonAsync("/api/v1/orders", new
+        {
+            items = new[] { new { productId, quantity = 3 } }
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        var order = await response.Content.ReadFromJsonAsync<JsonElement>();
+
+        // 3 × 1500 = 4500 con IVA incluido → neto 3781.51 y IVA 718.49.
+        order.GetProperty("totalAmount").GetDecimal().Should().Be(4500m);
+        order.GetProperty("netAmount").GetDecimal().Should().Be(3781.51m);
+        order.GetProperty("taxAmount").GetDecimal().Should().Be(718.49m);
+
+        var netAmount = order.GetProperty("netAmount").GetDecimal();
+        var taxAmount = order.GetProperty("taxAmount").GetDecimal();
+        taxAmount.Should().BeApproximately(netAmount * 0.19m, 0.01m);
+    }
+
+    [Fact]
+    public async Task CreateOrder_TotalEqualsNetPlusIva()
+    {
+        using var client = await _factory.CreateAuthenticatedClientAsync();
+        var created = await client.CreateProductAsync(stock: 5, price: 1990m);
+        var productId = created.GetProperty("id").GetInt32();
+
+        var response = await client.PostAsJsonAsync("/api/v1/orders", new
+        {
+            items = new[] { new { productId, quantity = 3 } }
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        var order = await response.Content.ReadFromJsonAsync<JsonElement>();
+
+        var netAmount = order.GetProperty("netAmount").GetDecimal();
+        var taxAmount = order.GetProperty("taxAmount").GetDecimal();
+        var totalAmount = order.GetProperty("totalAmount").GetDecimal();
+
+        totalAmount.Should().Be(netAmount + taxAmount);
+        totalAmount.Should().Be(5970m);
+    }
+
+    [Fact]
+    public async Task GetDte_ForDeliveredOrder_ReturnsDteStructure()
+    {
+        using var client = await _factory.CreateAuthenticatedClientAsync();
+        var order = await CreateDeliveredOrderAsync(client, quantity: 2, price: 1500m);
+
+        // El frontend abre el DTE en una pestaña nueva (window.open), que no puede
+        // enviar el header Authorization: el token viaja en el query string. Se usa
+        // un cliente sin header para validar exactamente ese camino.
+        var token = client.DefaultRequestHeaders.Authorization!.Parameter;
+        using var anonymousClient = _factory.CreateClient();
+        var response = await anonymousClient.GetAsync(
+            $"/api/v1/orders/{order.Id}/dte?access_token={token}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var dte = await response.Content.ReadFromJsonAsync<JsonElement>();
+
+        dte.GetProperty("tipoDte").GetInt32().Should().Be(33);
+        dte.GetProperty("folio").GetString().Should().Be(order.OrderNumber);
+        dte.GetProperty("fechaEmision").GetString().Should().MatchRegex(@"^\d{4}-\d{2}-\d{2}$");
+        dte.GetProperty("emisor").GetProperty("rut").GetString().Should().NotBeNullOrEmpty();
+        dte.GetProperty("emisor").GetProperty("razonSocial").GetString().Should().Be("WareFlow SpA");
+        dte.GetProperty("receptor").GetProperty("razonSocial").GetString().Should().NotBeNullOrEmpty();
+        dte.GetProperty("detalles").GetArrayLength().Should().Be(1);
+
+        // El DTE es consistente con el desglose de la orden: 3000 = 2521.01 + 478.99.
+        dte.GetProperty("montoTotal").GetDecimal().Should().Be(3000m);
+        dte.GetProperty("montoNeto").GetDecimal().Should().Be(2521.01m);
+        dte.GetProperty("iva").GetDecimal().Should().Be(478.99m);
+        dte.GetProperty("tasaImpuesto").GetInt32().Should().Be(19);
+    }
+
+    [Fact]
+    public async Task GetDte_WithNonExistingOrder_ReturnsNotFound()
+    {
+        using var client = await _factory.CreateAuthenticatedClientAsync();
+
+        var response = await client.GetAsync("/api/v1/orders/999999/dte");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
+        payload.GetProperty("message").GetString().Should().Contain("no encontrada");
+    }
+
     // ---------------- Helpers ----------------
+
+    /// <summary>
+    /// Crea una orden y la lleva a Delivered (4) recorriendo las transiciones
+    /// válidas: Pending (1) → Processing (2) → Shipped (3) → Delivered (4).
+    /// </summary>
+    private static async Task<(int Id, string OrderNumber)> CreateDeliveredOrderAsync(
+        HttpClient client,
+        int quantity = 2,
+        decimal price = 1500m)
+    {
+        var product = await client.CreateProductAsync(stock: quantity * 2, price: price);
+        var productId = product.GetProperty("id").GetInt32();
+
+        var createResponse = await client.PostAsJsonAsync("/api/v1/orders", new
+        {
+            items = new[] { new { productId, quantity } }
+        });
+        createResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var created = await createResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var orderId = created.GetProperty("id").GetInt32();
+
+        foreach (var status in new[] { 2, 3, 4 })
+        {
+            var transition = await client.PutAsJsonAsync(
+                $"/api/v1/orders/{orderId}/status", new { status });
+            transition.StatusCode.Should().Be(HttpStatusCode.OK);
+        }
+
+        return (orderId, created.GetProperty("orderNumber").GetString()!);
+    }
 
     /// <summary>Crea <paramref name="count"/> órdenes de 1 unidad sobre un producto nuevo.</summary>
     private static async Task CreateOrdersAsync(HttpClient client, int count)

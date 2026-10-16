@@ -204,7 +204,7 @@ Ver [docs/adr/](docs/adr/) para las decisiones arquitectónicas.
 > tardar unos segundos mientras despierta (el backend tiene reintentos automáticos
 > configurados para ese caso).
 >
-> Usuario demo: `cri.verap@duocuc.cl` / `Iceland12.`
+> Usuario demo: `test@test.com` / `Test123.`
 
 ---
 
@@ -349,7 +349,7 @@ Una vez grabados, cada GIF se embebe con `![descripción](docs/gifs/0X-nombre.gi
 | Frontend React (login, productos, carrito, órdenes) | ✅ 85% |
 | Base de datos + seed | ✅ 95% |
 | Documentación | ✅ 90% |
-| Tests automatizados | ✅ 42 tests |
+| Tests automatizados | ✅ 46 tests |
 | Docker | ✅ |
 | CI/CD | ✅ |
 | Despliegue en la nube | ✅ Azure + Vercel |

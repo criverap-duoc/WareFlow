@@ -137,6 +137,68 @@ public class OrdersController : ControllerBase
         return Ok(order);
     }
 
+    // El IVA vigente en Chile es 19% y los precios del catálogo vienen con IVA
+    // incluido, por lo que basta el factor para derivar el neto del total.
+    private const decimal IvaFactor = 1.19m;
+    private const int IvaTasa = 19;
+
+    // GET: api/orders/{id}/dte
+    // Simulación de un DTE (Documento Tributario Electrónico; tipo 33 = factura
+    // afecta a IVA) con los campos mínimos del SII. No se firma ni se envía al
+    // SII: es la representación tributaria de la orden para el portafolio.
+    [HttpGet("{id}/dte")]
+    public async Task<IActionResult> GetDte(int id)
+    {
+        var order = await _context.Orders
+            .Include(o => o.OrderItems)
+                .ThenInclude(oi => oi.Product)
+            .Include(o => o.User)
+            .FirstOrDefaultAsync(o => o.Id == id);
+
+        if (order == null)
+            return NotFound(new { message = "Orden no encontrada" });
+
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        // Mismo criterio de visibilidad que GetOrder: Admin y Bodeguero ven todas.
+        var canSeeAllOrders = User.IsInRole("Admin") || User.IsInRole("Bodeguero");
+        if (!canSeeAllOrders && order.UserId != userId)
+            return Forbid();
+
+        var dte = new
+        {
+            tipoDte = 33,
+            folio = order.OrderNumber,
+            fechaEmision = TimeZoneInfo.ConvertTimeFromUtc(order.OrderDate, ChileTimeZone)
+                .ToString("yyyy-MM-dd"),
+            emisor = new
+            {
+                rut = "76.543.210-K",
+                razonSocial = "WareFlow SpA",
+                giro = "Venta de articulos de tecnologia",
+                direccion = "Av. Providencia 1234, Santiago"
+            },
+            receptor = new
+            {
+                rut = "12.345.678-9",
+                razonSocial = $"{order.User.FirstName} {order.User.LastName}",
+                direccion = "Sin direccion registrada"
+            },
+            detalles = order.OrderItems.Select(oi => new
+            {
+                nombre = oi.Product.Name,
+                cantidad = oi.Quantity,
+                precioUnitario = oi.UnitPrice,
+                montoItem = oi.Subtotal
+            }),
+            montoNeto = order.NetAmount,
+            iva = order.TaxAmount,
+            montoTotal = order.TotalAmount,
+            tasaImpuesto = IvaTasa
+        };
+
+        return Ok(dte);
+    }
+
     // POST: api/orders
     [HttpPost]
     [Authorize(Roles = "Admin,Vendedor")]
@@ -196,6 +258,12 @@ public class OrdersController : ControllerBase
                 _context.InventoryMovements.Add(movement);
             }
 
+            // Los precios del catálogo incluyen IVA: el total de los items ya es el
+            // monto con IVA, así que el neto se deriva dividiendo por el factor.
+            var totalWithIva = totalAmount;
+            var netAmount = Math.Round(totalWithIva / IvaFactor, 2);
+            var taxAmount = totalWithIva - netAmount;
+
             // Crear la orden
             var order = new Order
             {
@@ -203,7 +271,9 @@ public class OrdersController : ControllerBase
                 UserId = userId,
                 OrderDate = DateTime.UtcNow,
                 Status = OrderStatus.Pending,
-                TotalAmount = totalAmount,
+                TotalAmount = totalWithIva,
+                NetAmount = netAmount,
+                TaxAmount = taxAmount,
                 Notes = orderDto.Notes ?? string.Empty,
                 OrderItems = orderItems
             };
@@ -218,6 +288,8 @@ public class OrdersController : ControllerBase
                 order.OrderDate,
                 order.Status,
                 order.TotalAmount,
+                order.NetAmount,
+                order.TaxAmount,
                 order.Notes,
                 Items = order.OrderItems.Select(oi => new
                 {

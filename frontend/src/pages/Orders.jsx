@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronDown, ChevronUp, Package } from 'lucide-react';
+import { ChevronDown, ChevronUp, FileText, Package } from 'lucide-react';
 import { orderService } from '../services/api';
 import { formatCLP, formatDate } from '../lib/formatters';
 import { ORDER_STATUS } from '../lib/constants';
@@ -220,6 +220,25 @@ function Orders() {
                           {formatCLP(order.totalAmount)}
                         </span>
                       </div>
+
+                      {statusKey === 'Delivered' && (
+                        <div className="flex justify-end">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const apiUrl =
+                                import.meta.env.VITE_API_URL || 'http://localhost:5276/api/v1';
+                              const token = localStorage.getItem('token');
+                              const query = token ? `?access_token=${encodeURIComponent(token)}` : '';
+                              window.open(`${apiUrl}/Orders/${order.id}/dte${query}`, '_blank');
+                            }}
+                          >
+                            <FileText className="mr-2 h-4 w-4" />
+                            Descargar DTE
+                          </Button>
+                        </div>
+                      )}
 
                       {order.notes && (
                         <div className="rounded-md bg-muted/50 p-3 text-sm">

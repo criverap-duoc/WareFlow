@@ -51,6 +51,13 @@ namespace WareFlow.Infrastructure.Data
                 entity.Property(o => o.TotalAmount)
                     .HasPrecision(18, 2); // 18 dígitos totales, 2 decimales
 
+                // Desglose de IVA (Fase 3): neto + IVA = total con IVA incluido.
+                entity.Property(o => o.NetAmount)
+                    .HasPrecision(18, 2);
+
+                entity.Property(o => o.TaxAmount)
+                    .HasPrecision(18, 2);
+
                 entity.Property(o => o.OrderNumber)
                     .HasMaxLength(50)
                     .IsRequired();
