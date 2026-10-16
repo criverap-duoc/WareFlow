@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronDown, ChevronUp, FileText, Package } from 'lucide-react';
+import { AlertTriangle, ChevronDown, ChevronUp, FileText, Package } from 'lucide-react';
+import { cn } from 'cn';
 import { orderService } from '../services/api';
 import { formatCLP, formatDate } from '../lib/formatters';
 import { ORDER_STATUS } from '../lib/constants';
@@ -8,6 +9,7 @@ import { PageHeader } from '../components/layout/PageHeader';
 import { ListPagination } from '../components/common/ListPagination';
 import { OrderStatusBadge } from '../components/orders/OrderStatusBadge';
 import { OrderStepper } from '../components/orders/OrderStepper';
+import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader } from '../components/ui/card';
 import { Skeleton } from '../components/ui/skeleton';
@@ -132,7 +134,22 @@ function Orders() {
                         {formatDate(order.orderDate, true)}
                       </p>
                     </div>
-                    <OrderStatusBadge status={order.status} />
+                    <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center">
+                      {order.anomalyScore != null && order.anomalyScore > 30 && (
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            order.anomalyScore > 70
+                              ? 'bg-danger/10 text-danger border-danger/20'
+                              : 'bg-warning/10 text-warning border-warning/20'
+                          )}
+                        >
+                          <AlertTriangle className="mr-1 h-3 w-3" aria-hidden="true" />
+                          {order.anomalyScore > 70 ? 'Anomalía alta' : 'Revisar'}
+                        </Badge>
+                      )}
+                      <OrderStatusBadge status={order.status} />
+                    </div>
                   </div>
                   <OrderStepper statusKey={statusKey} />
                 </CardHeader>
@@ -244,6 +261,12 @@ function Orders() {
                         <div className="rounded-md bg-muted/50 p-3 text-sm">
                           <span className="text-muted-foreground">Notas: </span>
                           {order.notes}
+                        </div>
+                      )}
+
+                      {order.anomalyReason && order.anomalyReason !== 'Normal' && (
+                        <div className="rounded-md bg-warning/10 p-2 text-xs text-warning">
+                          <strong>Motivo:</strong> {order.anomalyReason}
                         </div>
                       )}
                     </div>

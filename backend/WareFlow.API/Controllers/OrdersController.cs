@@ -6,6 +6,7 @@ using WareFlow.Core.Enums;
 using WareFlow.Core.DTOs;
 using WareFlow.Infrastructure.Data;
 using System.Security.Claims;
+using WareFlow.API.Services;
 
 namespace WareFlow.API.Controllers;
 
@@ -15,10 +16,12 @@ namespace WareFlow.API.Controllers;
 public class OrdersController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
+    private readonly AnomalyDetectionService _anomalyService;
 
-    public OrdersController(ApplicationDbContext context)
+    public OrdersController(ApplicationDbContext context, AnomalyDetectionService anomalyService)
     {
         _context = context;
+        _anomalyService = anomalyService;
     }
 
     // GET: api/orders
@@ -64,6 +67,8 @@ public class OrdersController : ControllerBase
                 o.Status,
                 o.TotalAmount,
                 o.Notes,
+                o.AnomalyScore,
+                o.AnomalyReason,
                 User = new
                 {
                     o.User.Id,
@@ -107,6 +112,8 @@ public class OrdersController : ControllerBase
                 o.Status,
                 o.TotalAmount,
                 o.Notes,
+                o.AnomalyScore,
+                o.AnomalyReason,
                 User = new
                 {
                     o.User.Id,
@@ -290,6 +297,13 @@ public class OrdersController : ControllerBase
 
             await _context.SaveChangesAsync();
 
+            // Fase IA.2: el score de anomalía se calcula al crear la orden y queda
+            // persistido, para no recalcularlo en cada listado.
+            var (anomalyScore, anomalyReason) = await _anomalyService.CalculateAsync(order);
+            order.AnomalyScore = anomalyScore;
+            order.AnomalyReason = anomalyReason;
+            await _context.SaveChangesAsync();
+
             return CreatedAtAction(nameof(GetOrder), new { id = order.Id }, new
             {
                 order.Id,
@@ -300,6 +314,8 @@ public class OrdersController : ControllerBase
                 order.NetAmount,
                 order.TaxAmount,
                 order.Notes,
+                order.AnomalyScore,
+                order.AnomalyReason,
                 Items = order.OrderItems.Select(oi => new
                 {
                     oi.Id,
@@ -315,6 +331,31 @@ public class OrdersController : ControllerBase
         {
             return StatusCode(500, new { message = "Error al crear la orden", error = ex.Message });
         }
+    }
+
+    // POST: api/orders/detect-anomalies
+    // Recalcula el score de anomalía de todas las órdenes existentes (solo Admin).
+    [HttpPost("detect-anomalies")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> DetectAllAnomalies()
+    {
+        var orders = await _context.Orders
+            .Include(o => o.OrderItems)
+            .ToListAsync();
+
+        var count = 0;
+
+        foreach (var order in orders)
+        {
+            var (score, reason) = await _anomalyService.CalculateAsync(order);
+            order.AnomalyScore = score;
+            order.AnomalyReason = reason;
+            count++;
+        }
+
+        await _context.SaveChangesAsync();
+
+        return Ok(new { message = $"{count} ordenes procesadas", total = count });
     }
 
     // PUT: api/orders/{id}/status

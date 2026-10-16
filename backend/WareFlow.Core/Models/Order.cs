@@ -15,7 +15,12 @@ namespace WareFlow.Core.Models
         public decimal NetAmount { get; set; }
         public decimal TaxAmount { get; set; }
         public string Notes { get; set; } = string.Empty;
-        
+
+        // Fase IA.2: score de anomalía (0-100). Null mientras no se haya calculado.
+        // AnomalyReason explica el motivo cuando el score supera el umbral.
+        public decimal? AnomalyScore { get; set; }
+        public string? AnomalyReason { get; set; }
+
         public User User { get; set; } = null!;
         public ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
     }

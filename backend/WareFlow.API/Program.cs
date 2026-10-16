@@ -117,6 +117,9 @@ builder.Services.AddScoped<RefreshTokenService>();
 // Fase IA.1: predicción de demanda (promedio de ventas de los últimos 30 días)
 builder.Services.AddScoped<DemandForecastService>();
 
+// Fase IA.2: detección de anomalías en órdenes (Z-score sobre el historial)
+builder.Services.AddScoped<AnomalyDetectionService>();
+
 // CORS
 // Los orígenes permitidos se leen de configuración (Cors:AllowedOrigins), lo que
 // permite apuntar a Vercel/Azure en producción vía appsettings.Production.json o

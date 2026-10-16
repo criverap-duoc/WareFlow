@@ -341,6 +341,89 @@ public class OrdersControllerTests : IClassFixture<CustomWebApplicationFactory>
         payload.GetProperty("message").GetString().Should().Contain("no encontrada");
     }
 
+    // ---------------- Detección de anomalías (Fase IA.2) ----------------
+
+    [Fact]
+    public async Task CreateOrder_AssignsAnomalyScore()
+    {
+        using var isolatedFactory = new IsolatedWebApplicationFactory();
+        using var client = await isolatedFactory.CreateAuthenticatedClientAsync();
+        var created = await client.CreateProductAsync(stock: 10, price: 1500m);
+        var productId = created.GetProperty("id").GetInt32();
+
+        var response = await client.PostAsJsonAsync("/api/v1/orders", new
+        {
+            items = new[] { new { productId, quantity = 1 } }
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        var order = await response.Content.ReadFromJsonAsync<JsonElement>();
+
+        // El score se calcula y se persiste al crear la orden (rango 0-100).
+        order.GetProperty("anomalyScore").ValueKind.Should().Be(JsonValueKind.Number);
+        order.GetProperty("anomalyScore").GetDecimal().Should().BeGreaterThanOrEqualTo(0m);
+        order.GetProperty("anomalyReason").GetString().Should().NotBeNullOrEmpty();
+    }
+
+    [Fact]
+    public async Task CreateOrder_WithVeryHighAmount_GetsPositiveAnomalyScore()
+    {
+        using var isolatedFactory = new IsolatedWebApplicationFactory();
+        using var client = await isolatedFactory.CreateAuthenticatedClientAsync();
+        // Monto sobre el umbral heurístico (1.000.000): la orden se marca anómala.
+        var created = await client.CreateProductAsync(stock: 2, price: 2000000m);
+        var productId = created.GetProperty("id").GetInt32();
+
+        var response = await client.PostAsJsonAsync("/api/v1/orders", new
+        {
+            items = new[] { new { productId, quantity = 1 } }
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        var order = await response.Content.ReadFromJsonAsync<JsonElement>();
+        order.GetProperty("anomalyScore").GetDecimal().Should().BeGreaterThan(0m);
+    }
+
+    [Fact]
+    public async Task DetectAnomalies_AsAdmin_ReturnsOk()
+    {
+        using var isolatedFactory = new IsolatedWebApplicationFactory();
+        using var admin = await isolatedFactory.CreateAuthenticatedClientAsync("Admin");
+        var created = await admin.CreateProductAsync(stock: 10, price: 1000m);
+        var productId = created.GetProperty("id").GetInt32();
+
+        for (var i = 0; i < 3; i++)
+        {
+            var order = await admin.PostAsJsonAsync("/api/v1/orders", new
+            {
+                items = new[] { new { productId, quantity = 1 } }
+            });
+            order.StatusCode.Should().Be(HttpStatusCode.Created);
+        }
+
+        var response = await admin.PostAsync("/api/v1/orders/detect-anomalies", null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
+        payload.GetProperty("total").GetInt32().Should().Be(3);
+        payload.GetProperty("message").GetString().Should().Contain("ordenes procesadas");
+    }
+
+    [Fact]
+    public async Task DetectAnomalies_AsNonAdmin_ReturnsForbidden()
+    {
+        using var isolatedFactory = new IsolatedWebApplicationFactory();
+
+        // El primer usuario de una base vacía queda como Admin (AuthController):
+        // se registra uno primero para que el segundo reciba solo el rol Vendedor.
+        using var admin = await isolatedFactory.CreateAuthenticatedClientAsync("Admin");
+        using var vendedor = await isolatedFactory.CreateAuthenticatedClientAsync("Vendedor");
+
+        var response = await vendedor.PostAsync("/api/v1/orders/detect-anomalies", null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
     // ---------------- Helpers ----------------
 
     /// <summary>

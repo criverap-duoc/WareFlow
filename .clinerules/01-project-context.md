@@ -4,8 +4,9 @@
 - Backend: .NET 10 (ASP.NET Core), EF Core 9, SQL Server LocalDB (dev) / Azure SQL (prod planificado)
 - Frontend: React 19 + Vite 8, JavaScript (NO TypeScript por ahora), Context API, Axios
 - Auth: JWT Bearer (15 min) + refresh tokens (7 días, rotación), Identity para usuarios
-- Testing: xUnit + WebApplicationFactory (47 tests)
-- IA planificada: ML.NET (predicción demanda) + OpenAI API (anomalías)
+- Testing: xUnit + WebApplicationFactory (54 tests)
+- IA implementada: ML.NET (predicción demanda con estadística + Randomized PCA planned for anomalies)
+- Detección de anomalías en órdenes: Z-score estadístico (Randomized PCA queda como TODO)
 
 ## Arquitectura
 - Clean Architecture simplificada en 3 capas:

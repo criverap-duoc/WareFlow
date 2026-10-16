@@ -61,6 +61,10 @@ namespace WareFlow.Infrastructure.Data
                 entity.Property(o => o.OrderNumber)
                     .HasMaxLength(50)
                     .IsRequired();
+
+                // Fase IA.2: score de anomalía (0-100, opcional hasta el primer cálculo).
+                entity.Property(o => o.AnomalyScore)
+                    .HasPrecision(18, 2);
             });
 
             // Configurar OrderItem
