@@ -114,6 +114,9 @@ builder.Services.AddAuthentication(options =>
 // Fase B.3a: emisión y rotación de refresh tokens
 builder.Services.AddScoped<RefreshTokenService>();
 
+// Fase IA.1: predicción de demanda (promedio de ventas de los últimos 30 días)
+builder.Services.AddScoped<DemandForecastService>();
+
 // CORS
 // Los orígenes permitidos se leen de configuración (Cors:AllowedOrigins), lo que
 // permite apuntar a Vercel/Azure en producción vía appsettings.Production.json o

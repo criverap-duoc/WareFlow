@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using System.ComponentModel.DataAnnotations;
 using Microsoft.EntityFrameworkCore;
+using WareFlow.API.Services;
 using WareFlow.Core.DTOs;
 using WareFlow.Core.Models;
 using WareFlow.Infrastructure.Data;
@@ -211,6 +212,53 @@ public class ProductsController : ControllerBase
         await _context.SaveChangesAsync();
 
         return Ok(product);
+    }
+
+    // ---------------- Predicción de demanda (Fase IA.1) ----------------
+
+    // GET: api/products/{id}/demand-forecast
+    [HttpGet("{id}/demand-forecast")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetDemandForecast(
+        int id,
+        [FromServices] DemandForecastService forecastService)
+    {
+        var forecast = await forecastService.ForecastAsync(id);
+        if (forecast == null)
+            return NotFound(new { message = "Producto no encontrado" });
+        return Ok(forecast);
+    }
+
+    // GET: api/products/demand-forecast/top?limit=5
+    // Se declara antes de {id}/demand-forecast: la ruta literal tiene prioridad
+    // sobre la parametrizada en el routing de ASP.NET Core.
+    [HttpGet("demand-forecast/top")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetTopDemandForecasts(
+        [FromServices] DemandForecastService forecastService,
+        [FromQuery] int limit = 5)
+    {
+        if (limit < 1) limit = 5;
+
+        var products = await _context.Products
+            .Where(p => p.IsActive && p.Stock > 0)
+            .Select(p => p.Id)
+            .ToListAsync();
+
+        var forecasts = new List<DemandForecast>();
+        foreach (var productId in products)
+        {
+            var forecast = await forecastService.ForecastAsync(productId);
+            if (forecast != null && forecast.DaysUntilMinimum.HasValue)
+                forecasts.Add(forecast);
+        }
+
+        var top = forecasts
+            .OrderBy(f => f.DaysUntilMinimum)
+            .Take(limit)
+            .ToList();
+
+        return Ok(top);
     }
 
     // DELETE: api/products/{id}

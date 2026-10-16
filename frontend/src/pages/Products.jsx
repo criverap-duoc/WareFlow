@@ -13,6 +13,7 @@ import {
   SlidersHorizontal,
   Tags,
   Trash2,
+  TrendingDown,
   Wallet,
   X,
 } from 'lucide-react';
@@ -28,7 +29,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
-import { Card } from '../components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Skeleton } from '../components/ui/skeleton';
 import { Badge } from '../components/ui/badge';
 import {
@@ -126,6 +127,9 @@ function Products() {
     alerts: 0,
     categories: [],
   });
+
+  // Predicción de demanda (Fase IA.1): productos que llegarán al stock mínimo pronto.
+  const [forecasts, setForecasts] = useState([]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -239,6 +243,20 @@ function Products() {
 
   useEffect(() => {
     loadSummary();
+  }, []);
+
+  // Predicción de demanda: el endpoint solo devuelve productos con ventas recientes
+  // (los que tienen fecha estimada de reabastecimiento).
+  useEffect(() => {
+    const loadForecasts = async () => {
+      try {
+        const response = await productService.getTopDemandForecasts(5);
+        setForecasts(response.data ?? []);
+      } catch (err) {
+        console.error('Error cargando forecasts:', err);
+      }
+    };
+    loadForecasts();
   }, []);
 
   useEffect(() => {
@@ -562,6 +580,29 @@ function Products() {
             )}
           </button>
         </div>
+
+        {/* Predicción de demanda (Fase IA.1) */}
+        {forecasts.length > 0 && (
+          <Card className="border-warning/20 bg-warning/5 shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <TrendingDown className="size-4 text-warning" />
+                Productos que se agotarán pronto
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {forecasts.map((f) => (
+                <div key={f.productId} className="flex items-center justify-between gap-4 text-sm">
+                  <span className="font-medium">{f.productName}</span>
+                  <span className="flex items-center gap-2 text-muted-foreground">
+                    <span className="num">{f.daysUntilMinimum} días</span>
+                    <span className="text-xs">conf. {Math.round((f.confidence ?? 0) * 100)}%</span>
+                  </span>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Filtros */}
         <div ref={filtersRef} className="rounded-lg border bg-card p-3 shadow-sm sm:p-4">

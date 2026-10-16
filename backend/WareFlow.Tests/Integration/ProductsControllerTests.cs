@@ -342,6 +342,72 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
         product.Name.Should().Be("Producto de prueba");
     }
 
+    // ---------------- Predicción de demanda (Fase IA.1) ----------------
+
+    [Fact]
+    public async Task GetDemandForecast_ProductWithoutSales_ReturnsOkWithZeroConfidence()
+    {
+        using var isolatedFactory = new IsolatedWebApplicationFactory();
+        using var admin = await isolatedFactory.CreateAuthenticatedClientAsync("Admin");
+        var created = await admin.CreateProductAsync(stock: 20, price: 1000m);
+        var productId = created.GetProperty("id").GetInt32();
+
+        var response = await admin.GetAsync($"/api/v1/products/{productId}/demand-forecast");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
+        payload.GetProperty("productId").GetInt32().Should().Be(productId);
+        payload.GetProperty("currentStock").GetInt32().Should().Be(20);
+        // Sin movimientos de venta no hay promedio diario ni fecha recomendada.
+        payload.GetProperty("averageDailySales").GetDecimal().Should().Be(0m);
+        payload.GetProperty("daysUntilMinimum").ValueKind.Should().Be(JsonValueKind.Null);
+        payload.GetProperty("recommendedReorderDate").ValueKind.Should().Be(JsonValueKind.Null);
+        payload.GetProperty("recommendedReorderQuantity").GetInt32().Should().Be(0);
+        payload.GetProperty("confidence").GetDecimal().Should().Be(0m);
+        payload.GetProperty("message").GetString().Should().Contain("Sin datos de ventas");
+    }
+
+    [Fact]
+    public async Task GetDemandForecast_UnknownProduct_ReturnsNotFound()
+    {
+        var response = await _client.GetAsync("/api/v1/products/999999/demand-forecast");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
+        payload.GetProperty("message").GetString().Should().Contain("Producto no encontrado");
+    }
+
+    [Fact]
+    public async Task GetTopDemandForecasts_ReturnsAtMostRequestedLimit()
+    {
+        using var isolatedFactory = new IsolatedWebApplicationFactory();
+        using var admin = await isolatedFactory.CreateAuthenticatedClientAsync("Admin");
+
+        // Tres productos con venta reciente: los tres tienen días hasta el mínimo.
+        for (var i = 0; i < 3; i++)
+        {
+            var created = await admin.CreateProductAsync(stock: 30, price: 1000m);
+            var productId = created.GetProperty("id").GetInt32();
+
+            var order = await admin.PostAsJsonAsync("/api/v1/orders", new
+            {
+                items = new[] { new { productId, quantity = 10 } },
+                notes = "Venta para forecast"
+            });
+            order.StatusCode.Should().Be(HttpStatusCode.Created);
+        }
+
+        var response = await admin.GetAsync("/api/v1/products/demand-forecast/top?limit=2");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
+        payload.ValueKind.Should().Be(JsonValueKind.Array);
+        payload.GetArrayLength().Should().Be(2);
+        // Solo entran los productos con fecha estimada de reabastecimiento.
+        payload.EnumerateArray().Should().OnlyContain(f =>
+            f.GetProperty("daysUntilMinimum").ValueKind != JsonValueKind.Null);
+    }
+
     // ---------------- Helpers ----------------
 
     private static async Task SeedProductsAsync(HttpClient client, int count)

@@ -141,6 +141,11 @@ export const productService = {
   create: (product) => api.post('/Products', product),
   update: (id, product) => api.put('/Products/' + id, product),
   delete: (id) => api.delete('/Products/' + id),
+  // Predicción de demanda (Fase IA.1): ventas diarias promedio de los últimos
+  // 30 días, días hasta el stock mínimo y cantidad recomendada de reabastecimiento.
+  getDemandForecast: (id) => api.get(`/Products/${id}/demand-forecast`),
+  getTopDemandForecasts: (limit = 5) =>
+    api.get('/Products/demand-forecast/top', { params: { limit } }),
 };
 
 // Servicio de órdenes
