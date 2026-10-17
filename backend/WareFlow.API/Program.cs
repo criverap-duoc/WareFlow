@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Identity;
 using WareFlow.Core.Models;
 using WareFlow.API.Data;
 using WareFlow.API.Services;
+using WareFlow.Core.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -119,6 +120,11 @@ builder.Services.AddScoped<DemandForecastService>();
 
 // Fase IA.2: detección de anomalías en órdenes (Z-score sobre el historial)
 builder.Services.AddScoped<AnomalyDetectionService>();
+
+// Fase IA.3: búsqueda semántica con embeddings de Gemini (gemini-embedding-2).
+// El timeout evita que una llamada colgada al proveedor bloquee el request.
+builder.Services.AddHttpClient<IEmbeddingService, GeminiEmbeddingService>(client =>
+    client.Timeout = TimeSpan.FromSeconds(30));
 
 // CORS
 // Los orígenes permitidos se leen de configuración (Cors:AllowedOrigins), lo que

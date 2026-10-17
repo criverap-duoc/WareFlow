@@ -36,6 +36,8 @@ services:
       Jwt__ExpireDays: "7"
       Jwt__AccessExpireMinutes: "15"
       Jwt__RefreshExpireDays: "7"
+      # Búsqueda semántica (Fase IA.3): la key se pasa desde el .env del host.
+      Gemini__ApiKey: "${GEMINI_API_KEY:-}"
     ports:
       - "8080:8080"
     depends_on:

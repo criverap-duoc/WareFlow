@@ -84,3 +84,14 @@
 - `feat/<nombre>`: features nuevas
 - `fix/<nombre>`: correcciones
 - Etapa actual: commits directos a `main` (proyecto personal)
+
+## Idioma de las respuestas
+
+TODAS las respuestas de Cline deben ser en ESPAÑOL, sin excepción.
+- Explicaciones: español
+- Mensajes de reporte: español
+- Comentarios de código: inglés (estándar de la industria)
+- Nombres de variables/funciones: inglés (estándar de la industria)
+- Mensajes de commit: inglés (Conventional Commits)
+
+NUNCA responder en chino, inglés u otro idioma.

@@ -11,6 +11,7 @@ import {
   Search,
   ShoppingCart,
   SlidersHorizontal,
+  Sparkles,
   Tags,
   Trash2,
   TrendingDown,
@@ -137,6 +138,27 @@ function Products() {
   const [stockFilter, setStockFilter] = useState('all');
   const [sortBy, setSortBy] = useState('name-asc');
   const [formData, setFormData] = useState(EMPTY_FORM);
+
+  // Búsqueda semántica (Fase IA.3): ranking por similitud de embeddings (Gemini).
+  const [semanticQuery, setSemanticQuery] = useState('');
+  const [semanticResults, setSemanticResults] = useState(null);
+  const [semanticLoading, setSemanticLoading] = useState(false);
+
+  const handleSemanticSearch = async () => {
+    const query = semanticQuery.trim();
+    if (!query) return;
+
+    try {
+      setSemanticLoading(true);
+      const response = await productService.searchSemantic(query);
+      setSemanticResults(response.data?.results ?? []);
+    } catch (err) {
+      console.error(err);
+      toast.error('No se pudo completar la búsqueda semántica');
+    } finally {
+      setSemanticLoading(false);
+    }
+  };
 
   const filtersRef = useRef(null);
   const { addToCart } = useCart();
@@ -603,6 +625,77 @@ function Products() {
             </CardContent>
           </Card>
         )}
+
+        {/* Búsqueda semántica (Fase IA.3) */}
+        <Card className="gap-0 py-4 shadow-sm">
+          <CardContent className="space-y-3">
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <div className="relative flex-1">
+                <Sparkles className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-primary" />
+                <Input
+                  value={semanticQuery}
+                  onChange={(e) => setSemanticQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSemanticSearch()}
+                  placeholder="Búsqueda inteligente: ej. 'laptops baratas con stock'"
+                  className="pl-9"
+                  aria-label="Búsqueda semántica de productos"
+                />
+              </div>
+              <Button
+                onClick={handleSemanticSearch}
+                disabled={semanticLoading || !semanticQuery.trim()}
+              >
+                <Sparkles className="size-4" />
+                {semanticLoading ? 'Buscando...' : 'Buscar con IA'}
+              </Button>
+            </div>
+
+            {semanticResults && (
+              <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <p className="flex items-center gap-2 text-sm font-semibold">
+                    <Sparkles className="size-4 text-primary" />
+                    Resultados semánticos ({semanticResults.length})
+                  </p>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => setSemanticResults(null)}
+                    aria-label="Cerrar resultados semánticos"
+                    title="Cerrar resultados"
+                  >
+                    <X className="size-4" />
+                  </Button>
+                </div>
+
+                {semanticResults.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Sin coincidencias. Genera los embeddings del catálogo o prueba otra consulta.
+                  </p>
+                ) : (
+                  <ul className="space-y-2">
+                    {semanticResults.map((r) => (
+                      <li key={r.id} className="flex items-center justify-between gap-3 text-sm">
+                        <div className="min-w-0">
+                          <p className="truncate font-medium">{r.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {r.category} · {r.sku}
+                          </p>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-3">
+                          <span className="num text-muted-foreground">{formatCLP(r.price)}</span>
+                          <Badge variant="outline" className="bg-background/60 font-normal">
+                            {Math.round((r.score ?? 0) * 100)}% match
+                          </Badge>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Filtros */}
         <div ref={filtersRef} className="rounded-lg border bg-card p-3 shadow-sm sm:p-4">

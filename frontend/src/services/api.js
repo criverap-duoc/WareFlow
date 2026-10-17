@@ -146,6 +146,9 @@ export const productService = {
   getDemandForecast: (id) => api.get(`/Products/${id}/demand-forecast`),
   getTopDemandForecasts: (limit = 5) =>
     api.get('/Products/demand-forecast/top', { params: { limit } }),
+  // Búsqueda semántica (Fase IA.3): ranking por similitud de embeddings.
+  searchSemantic: (query, limit = 5) =>
+    api.get('/Products/semantic-search', { params: { q: query, limit } }),
 };
 
 // Servicio de órdenes

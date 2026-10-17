@@ -1,9 +1,11 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using WareFlow.API.Services;
 using WareFlow.Core.DTOs;
+using WareFlow.Core.Interfaces;
 using WareFlow.Core.Models;
 using WareFlow.Infrastructure.Data;
 
@@ -259,6 +261,141 @@ public class ProductsController : ControllerBase
             .ToList();
 
         return Ok(top);
+    }
+
+    // ---------------- Búsqueda semántica (Fase IA.3) ----------------
+
+    // GET: api/products/semantic-search?q=laptops baratas con stock&limit=5
+    // Compara el embedding de la consulta con el de cada producto (similitud
+    // coseno en memoria: 66 productos no justifican una vector DB).
+    [HttpGet("semantic-search")]
+    [AllowAnonymous]
+    public async Task<IActionResult> SemanticSearch(
+        [FromQuery] string? q,
+        [FromServices] IEmbeddingService embeddingService,
+        [FromQuery] int limit = 5)
+    {
+        if (string.IsNullOrWhiteSpace(q))
+            return BadRequest(new { message = "Query requerido" });
+
+        if (limit < 1) limit = 1;
+        if (limit > 20) limit = 20;
+
+        // Embedding de la consulta
+        float[] queryEmbedding;
+        try
+        {
+            queryEmbedding = await embeddingService.GenerateQueryEmbeddingAsync(q.Trim());
+        }
+        catch (Exception ex) when (ex is HttpRequestException or InvalidOperationException or TaskCanceledException)
+        {
+            // El proveedor es externo: su fallo no debe salir como 500 con stack trace.
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+            {
+                message = "Búsqueda semántica no disponible",
+                error = ex.Message
+            });
+        }
+
+        // Solo productos activos ya indexados
+        var candidates = await _context.Products
+            .Where(p => p.IsActive && p.Embedding != null)
+            .Select(p => new { p.Id, p.Name, p.SKU, p.Price, p.Stock, p.Category, p.ImageUrl, p.Embedding })
+            .ToListAsync();
+
+        static float[]? ParseEmbedding(string? json)
+        {
+            if (string.IsNullOrWhiteSpace(json)) return null;
+            try
+            {
+                return JsonSerializer.Deserialize<float[]>(json);
+            }
+            catch (JsonException)
+            {
+                // Vector corrupto: el producto se omite en lugar de romper la búsqueda.
+                return null;
+            }
+        }
+
+        var results = candidates
+            .Select(p => new { Product = p, Vector = ParseEmbedding(p.Embedding) })
+            .Where(x => x.Vector is not null && x.Vector.Length == queryEmbedding.Length)
+            .Select(x => new
+            {
+                x.Product.Id,
+                x.Product.Name,
+                x.Product.SKU,
+                x.Product.Price,
+                x.Product.Stock,
+                x.Product.Category,
+                x.Product.ImageUrl,
+                Score = Math.Round(
+                    GeminiEmbeddingService.CosineSimilarity(queryEmbedding, x.Vector!),
+                    4)
+            })
+            .Where(r => r.Score > 0.5) // Umbral mínimo de relevancia
+            .OrderByDescending(r => r.Score)
+            .Take(limit)
+            .ToList();
+
+        return Ok(new
+        {
+            query = q,
+            count = results.Count,
+            results
+        });
+    }
+
+    // POST: api/products/generate-embeddings
+    // Indexa el catálogo activo con embeddings. Operación manual e idempotente:
+    // se ejecuta tras cargar o editar productos.
+    [HttpPost("generate-embeddings")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> GenerateAllEmbeddings(
+        [FromServices] IEmbeddingService embeddingService)
+    {
+        var products = await _context.Products
+            .Where(p => p.IsActive)
+            .ToListAsync();
+
+        var processed = 0;
+        var failed = 0;
+
+        for (var i = 0; i < products.Count; i++)
+        {
+            var product = products[i];
+            try
+            {
+                var embedding = await embeddingService.GenerateDocumentEmbeddingAsync(
+                    product.Name,
+                    $"{product.Category}. {product.Description}");
+                product.Embedding = JsonSerializer.Serialize(embedding);
+                processed++;
+            }
+            catch (Exception ex) when (ex is HttpRequestException or InvalidOperationException or TaskCanceledException)
+            {
+                // Un producto sin embedding simplemente queda fuera de la búsqueda:
+                // un fallo puntual no aborta el lote completo.
+                failed++;
+            }
+
+            // Rate limit del tier gratuito: cada 10 peticiones se persiste el avance
+            // y se espera 4 s, así un corte del proveedor no pierde lo ya indexado.
+            if ((i + 1) % 10 == 0 && i + 1 < products.Count)
+            {
+                await _context.SaveChangesAsync();
+                await Task.Delay(TimeSpan.FromSeconds(4));
+            }
+        }
+
+        await _context.SaveChangesAsync();
+
+        return Ok(new
+        {
+            message = $"{processed} productos procesados",
+            total = products.Count,
+            failed
+        });
     }
 
     // DELETE: api/products/{id}

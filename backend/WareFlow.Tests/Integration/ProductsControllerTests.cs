@@ -2,6 +2,12 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using FluentAssertions;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using WareFlow.Core.Interfaces;
+using WareFlow.Core.Models;
+using WareFlow.Infrastructure.Data;
 
 namespace WareFlow.Tests.Integration;
 
@@ -408,6 +414,67 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
             f.GetProperty("daysUntilMinimum").ValueKind != JsonValueKind.Null);
     }
 
+    // ---------------- Búsqueda semántica (Fase IA.3) ----------------
+
+    [Fact]
+    public async Task SemanticSearch_WithoutQuery_ReturnsBadRequest()
+    {
+        var response = await _client.GetAsync("/api/v1/products/semantic-search");
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
+        payload.GetProperty("message").GetString().Should().Contain("Query requerido");
+    }
+
+    [Fact]
+    public async Task SemanticSearch_WithQuery_ReturnsRankedResults()
+    {
+        using var factory = new SemanticSearchWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        // Producto indexado con el vector del stub: coincide al 100%.
+        // El segundo producto no tiene embedding y debe quedar fuera del ranking.
+        using (var scope = factory.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+            context.Products.Add(new Product
+            {
+                Name = "Laptop económica",
+                Description = "Notebook liviana para estudio",
+                SKU = TestHelpers.UniqueSku("SEM"),
+                Price = 399990m,
+                Stock = 12,
+                MinimumStock = 2,
+                Category = "Laptops",
+                Embedding = JsonSerializer.Serialize(StubEmbeddingService.Vector())
+            });
+
+            context.Products.Add(new Product
+            {
+                Name = "Monitor sin indexar",
+                SKU = TestHelpers.UniqueSku("SEM"),
+                Price = 129990m,
+                Stock = 3,
+                MinimumStock = 1,
+                Category = "Monitores"
+            });
+
+            await context.SaveChangesAsync();
+        }
+
+        var response = await client.GetAsync("/api/v1/products/semantic-search?q=laptops%20baratas&limit=5");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
+        payload.GetProperty("query").GetString().Should().Be("laptops baratas");
+        payload.GetProperty("count").GetInt32().Should().Be(1);
+
+        var first = payload.GetProperty("results").EnumerateArray().Single();
+        first.GetProperty("name").GetString().Should().Be("Laptop económica");
+        first.GetProperty("score").GetDouble().Should().BeApproximately(1.0, 0.0001);
+    }
+
     // ---------------- Helpers ----------------
 
     private static async Task SeedProductsAsync(HttpClient client, int count)
@@ -432,4 +499,44 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
         payload.GetProperty("items").EnumerateArray()
             .Select(p => p.GetProperty("id").GetInt32())
             .ToList();
+}
+
+/// <summary>
+/// Factory que sustituye el servicio de embeddings por un stub determinista:
+/// los tests de integración no deben llamar al proveedor externo (Gemini).
+/// </summary>
+public class SemanticSearchWebApplicationFactory : IsolatedWebApplicationFactory
+{
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        base.ConfigureWebHost(builder);
+
+        builder.ConfigureServices(services =>
+        {
+            services.RemoveAll<IEmbeddingService>();
+            services.AddSingleton<IEmbeddingService, StubEmbeddingService>();
+        });
+    }
+}
+
+/// <summary>
+/// Embedding fijo (vector unitario en la primera dimensión) para que la
+/// similitud coseno con la consulta sea exactamente 1.
+/// </summary>
+internal class StubEmbeddingService : IEmbeddingService
+{
+    private const int Dimensions = 768;
+
+    public static float[] Vector()
+    {
+        var vector = new float[Dimensions];
+        vector[0] = 1f;
+        return vector;
+    }
+
+    public Task<float[]> GenerateQueryEmbeddingAsync(string query) =>
+        Task.FromResult(Vector());
+
+    public Task<float[]> GenerateDocumentEmbeddingAsync(string title, string text) =>
+        Task.FromResult(Vector());
 }
