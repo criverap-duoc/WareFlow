@@ -268,7 +268,7 @@ public class ProductsController : ControllerBase
     // GET: api/products/semantic-search?q=laptops baratas con stock&limit=5
     // Compara el embedding de la consulta con el de cada producto (similitud
     // coseno en memoria: 66 productos no justifican una vector DB).
-    [HttpGet("semantic-search")]
+    [HttpGet("semantic-search", Order = -1)]
     [AllowAnonymous]
     public async Task<IActionResult> SemanticSearch(
         [FromQuery] string? q,
@@ -349,7 +349,7 @@ public class ProductsController : ControllerBase
     // POST: api/products/generate-embeddings
     // Indexa el catálogo activo con embeddings. Operación manual e idempotente:
     // se ejecuta tras cargar o editar productos.
-    [HttpPost("generate-embeddings")]
+    [HttpPost("generate-embeddings", Order = -1)]
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> GenerateAllEmbeddings(
         [FromServices] IEmbeddingService embeddingService)
