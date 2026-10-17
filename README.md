@@ -9,34 +9,65 @@
 [![JWT](https://img.shields.io/badge/Auth-JWT-000000?logo=jsonwebtokens&logoColor=white)](https://jwt.io/)
 [![Swagger](https://img.shields.io/badge/API%20Docs-Swagger-85EA2D?logo=swagger&logoColor=black)](https://swagger.io/)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
+[![Gemini](https://img.shields.io/badge/AI-Google%20Gemini-8E75B2?logo=google&logoColor=white)](https://ai.google.dev/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](#-licencia)
 
-> API RESTful + SPA en React para gestión de inventarios, productos y órdenes con lógica de negocio real: control de stock, máquina de estados de órdenes, movimientos de inventario y dashboard de KPIs.
+> API RESTful + SPA en React para gestión de inventarios, productos y órdenes con lógica de negocio real: control de stock, máquina de estados de órdenes, movimientos de inventario, dashboard de KPIs, IVA/DTE chileno y tres features de IA aplicada. Desplegado en producción con Azure + Vercel.
+
+## Recorrido visual
+
+### Login - Dark Mode - Catálogo - Búsqueda por IA
+![Login - Dark Mode - Catálogo - Búsqueda por IA](docs/gifs/Wareflow1.gif)
+
+### Productos con filtros - Compras - Carrito - Cálculo de IVA - Órdenes de compra
+![Productos con filtros - Compras - Carrito - Cálculo de IVA - Órdenes de compra](docs/gifs/Wareflow2.gif)
+
+### Descarga DTE posterior a la entrega del producto
+![Descarga DTE posterior a la entrega del producto](docs/gifs/Wareflow3.gif)
 
 ---
 
+## Demo en vivo
+
+| Recurso | URL |
+|---------|-----|
+| **Frontend** | https://wareflow-vercel.vercel.app |
+| **Backend API** | https://wareflow-api-csvera-eweqd3c9ctanbvcj.brazilsouth-01.azurewebsites.net/api/v1 |
+| **Swagger UI** | https://wareflow-api-csvera-eweqd3c9ctanbvcj.brazilsouth-01.azurewebsites.net/swagger |
+
+**Credenciales de demo:**
+- Email: `test@test.com`
+- Password: `Test123.`
+
+> **Nota:** el backend corre en Azure App Service Free F1, que tiene 60 minutos de CPU diarios y se duerme tras 20 minutos de inactividad. La primera visita después de un período inactivo puede tardar 20-60 segundos (cold start) y devolver 503. Si ocurre, espera un minuto y reintenta. La base de datos (Azure SQL Serverless) también entra en auto-pause, y el backend tiene reintentos automáticos configurados para ese caso.
+
+---
+
+
 ## 🎯 ¿Qué es WareFlow?
 
-WareFlow es un **ERP ligero** desarrollado como proyecto de portafolio full-stack. Simula el flujo operativo real de una PYME: autenticación de usuarios, catálogo de productos con filtros avanzados, carrito de compras, creación de órdenes con validación de stock y trazabilidad completa mediante movimientos de inventario.
+WareFlow es un **ERP ligero** desarrollado como proyecto de portafolio full-stack. Simula el flujo operativo real de una PYME chilena: autenticación de usuarios con roles, catálogo de productos con filtros avanzados y búsqueda semántica, carrito de compras, creación de órdenes con validación de stock, cálculo de IVA, generación de DTE simulado y trazabilidad completa mediante movimientos de inventario.
 
-**No es un CRUD de tutorial.** Incluye lógica de negocio transaccional, máquina de estados, validaciones de negocio y un frontend funcional que consume la API end-to-end.
+**No es un CRUD de tutorial.** Incluye lógica de negocio transaccional, máquina de estados, validaciones de negocio, tres features de IA aplicada y un frontend funcional que consume la API end-to-end.
 
 ### 🧩 Problema que resuelve
-Las PYMEs suelen gestionar inventario y ventas en planillas Excel desconectadas, lo que provoca sobreventa, quiebres de stock y falta de trazabilidad. WareFlow centraliza productos, stock y órdenes en una API transaccional con interfaz web, aplicando reglas de negocio que evitan inconsistencias (por ejemplo: no se puede vender más stock del disponible).
+Las PYMEs suelen gestionar inventario y ventas en planillas Excel desconectadas, lo que provoca sobreventa, quiebres de stock y falta de trazabilidad. WareFlow centraliza productos, stock y órdenes en una API transaccional con interfaz web, aplicando reglas de negocio que evitan inconsistencias (por ejemplo: no se puede vender más stock del disponible) y agrega inteligencia para anticipar quiebres, detectar anomalías y mejorar el descubrimiento de productos.
 
 ---
 
 ## ✨ Características Principales
 
 ### 🔐 Autenticación y Autorización
-- Registro y login de usuarios con **ASP.NET Core Identity**
-- Autenticación basada en **JWT Bearer** (expiración configurable, 7 días por defecto)
-- Claims enriquecidos: `sub`, `email`, `jti`, `givenname`, `surname`
+- Registro y login con **ASP.NET Core Identity**
+- Autenticación basada en **JWT Bearer** (access token de 15 min + **refresh token de 7 días con rotación**)
+- Roles: **Admin / Vendedor / Bodeguero** (auto-asignación del primer usuario como Admin)
+- Autorización por rol en endpoints (Products, Orders, DTE, detección de anomalías)
+- Revocación de tokens al hacer logout
 - Rutas protegidas en frontend con redirección automática al login
 
 ### 📦 Gestión de Productos (CRUD completo)
 - Crear, listar, ver, actualizar y eliminar (soft delete) productos
-- Campos: nombre, descripción, SKU único, precio, stock, stock mínimo, categoría, imagen
+- Campos: nombre, descripción, SKU único, precio, stock, stock mínimo, categoría, imagen, embedding
 - Validaciones: SKU único, precio > 0, stock ≥ 0
 - SKU normalizado a mayúsculas automáticamente
 
@@ -46,6 +77,7 @@ Las PYMEs suelen gestionar inventario y ventas en planillas Excel desconectadas,
 - Filtro por rango de precio (`$0–100K`, `$100K–500K`, `$500K–1M`, `$1M+`)
 - Filtro por estado de stock (bajo, sin stock, con stock)
 - Ordenamiento por nombre, precio, stock o categoría (asc/desc)
+- **Paginación server-side** (`page`, `pageSize`)
 
 ### 📊 Dashboard de KPIs en tiempo real
 - Total de productos activos
@@ -59,19 +91,19 @@ Las PYMEs suelen gestionar inventario y ventas en planillas Excel desconectadas,
 - Estado global con **React Context API**
 - Persistencia en `localStorage` entre sesiones
 - Agregar, eliminar y actualizar cantidades (respetando stock máximo)
-- Cálculo automático de subtotales y total
+- **Desglose automático de IVA (19%):** Neto + IVA + Total
 - Badge con contador en el navbar
 
 ### 📋 Sistema de Órdenes con Lógica de Inventario
 - Creación de órdenes con **validación transaccional de stock**
 - Descuento automático de inventario al confirmar la orden
-- Registro de **movimientos de inventario** (`InventoryMovement`) por cada transacción
+- Registro de **movimientos de inventario** (`InventoryMovement`) con trazabilidad orden ↔ movimiento
 - Numeración automática: `ORD-YYYYMMDD-XXXX`
 - Máquina de estados:
   `Pending → Processing → Shipped → Delivered` (con soporte para `Cancelled` y `Returned`)
 - Transiciones validadas: no se puede saltar de `Pending` a `Delivered`
 - Cancelación restaura el stock automáticamente
-- Visibilidad por usuario: agentes ven sus órdenes; el historial completo es consultable
+- Visibilidad por rol: Admin y Bodeguero ven todas las órdenes; Vendedor solo las suyas
 
 ### 🖼️ Imágenes inteligentes por categoría
 - Detección automática por nombre/categoría: laptops, monitores, teclados, mouses, audífonos, CPU, GPU, SSD, RAM, smartphones, tablets
@@ -80,9 +112,9 @@ Las PYMEs suelen gestionar inventario y ventas en planillas Excel desconectadas,
 ### 🎨 Frontend React
 - Login/registro conectado a la API
 - CRUD completo de productos con formulario validado
-- Carrito y checkout
+- Carrito y checkout con desglose de IVA
 - Página de historial de órdenes con detalle expandible
-- Navbar unificado con estado activo y badge del carrito
+- Navbar unificado con estado activo, badge del carrito y modo oscuro
 
 ### 🤖 Inteligencia aplicada
 
@@ -122,13 +154,17 @@ backend/
 ├── WareFlow.API/            → Capa de presentación
 │   ├── Controllers/         → AuthController, ProductsController,
 │   │                          OrdersController, HealthController
+│   ├── Services/            → RefreshTokenService, DemandForecastService,
+│   │                          AnomalyDetectionService, GeminiEmbeddingService
+│   ├── Data/                → RoleSeeder
 │   ├── Program.cs           → DI, JWT, CORS, Swagger
-│   └── appsettings.json     → Configuración (DB, JWT, CORS)
+│   └── appsettings.json     → Configuración (DB, JWT, CORS, Gemini)
 │
 ├── WareFlow.Core/           → Capa de dominio
 │   ├── Models/              → User, Product, Order, OrderItem,
-│   │                          InventoryMovement
-│   └── Enums/               → OrderStatus, MovementType
+│   │                          InventoryMovement, RefreshToken
+│   ├── Enums/               → OrderStatus, MovementType
+│   └── DTOs/                → PaginatedResponse
 │
 └── WareFlow.Infrastructure/ → Capa de persistencia
     ├── Data/                → ApplicationDbContext
@@ -139,10 +175,11 @@ backend/
 
 ```
 frontend/src/
-├── components/              → Navbar
+├── components/              → Navbar, ThemeToggle, layout/, ui/, products/, orders/
 ├── pages/                   → Login, Products, Cart, Orders
 ├── context/                 → AuthContext, CartContext
-├── services/                → api.js (Axios + interceptores JWT)
+├── services/                → api.js (Axios + interceptores JWT + refresh automático)
+├── lib/                     → formatters, constants, images
 ├── App.jsx                  → Rutas protegidas
 └── main.jsx                 → Entry point
 ```
@@ -151,11 +188,14 @@ frontend/src/
 
 ```
 User ──1:N──> Order ──1:N──> OrderItem ──N:1──> Product
-                  │                                │
-                  └──1:N──> InventoryMovement <──1:N
+  │               │                                │
+  │               └──1:N──> InventoryMovement <──1:N
+  │                              │
+  └──1:N──> RefreshToken         └──(opcional)──> Order
 ```
 
 - **User → Order**: un usuario puede tener múltiples órdenes
+- **User → RefreshToken**: un usuario puede tener múltiples refresh tokens
 - **Order → OrderItem**: una orden contiene uno o más items
 - **OrderItem → Product**: cada item referencia un producto
 - **Product → InventoryMovement**: cada producto tiene historial de movimientos
@@ -219,6 +259,8 @@ Ver [docs/adr/](docs/adr/) para las decisiones arquitectónicas.
 | React Router | 7.13.2 | Enrutamiento |
 | Axios | Latest | Cliente HTTP |
 | Context API | Nativo | Estado global |
+| Tailwind CSS | 4 | Estilos |
+| shadcn/ui | Latest | Componentes UI |
 
 ### Base de datos
 - **Dev:** SQL Server LocalDB (`MSSQLLocalDB`)
@@ -226,22 +268,6 @@ Ver [docs/adr/](docs/adr/) para las decisiones arquitectónicas.
 
 ---
 
-## 🌐 Demo en vivo
-
-| Servicio | URL |
-|----------|-----|
-| Frontend (Vercel) | [wareflow-vercel.vercel.app](https://wareflow-vercel.vercel.app) |
-| Backend API (Azure App Service) | https://wareflow-api-csvera-eweqd3c9ctanbvcj.brazilsouth-01.azurewebsites.net |
-| Swagger | https://wareflow-api-csvera-eweqd3c9ctanbvcj.brazilsouth-01.azurewebsites.net/swagger |
-
-> La base de datos está en plan **Azure SQL Free Tier (serverless)**: entra en
-> *auto-pause* tras un periodo de inactividad, por lo que la primera petición puede
-> tardar unos segundos mientras despierta (el backend tiene reintentos automáticos
-> configurados para ese caso).
->
-> Usuario demo: `test@test.com` / `Test123.`
-
----
 
 ## 🚀 Quick Start
 
@@ -332,44 +358,38 @@ Password: Test123.
 | Método | Endpoint | Auth | Descripción |
 |--------|----------|------|-------------|
 | `POST` | `/api/v1/Auth/register` | ❌ | Registrar usuario |
-| `POST` | `/api/v1/Auth/login` | ❌ | Iniciar sesión (retorna JWT) |
+| `POST` | `/api/v1/Auth/login` | ❌ | Iniciar sesión (retorna access token + refresh token) |
+| `POST` | `/api/v1/Auth/refresh` | ❌ | Renovar access token con refresh token (rotación) |
+| `POST` | `/api/v1/Auth/logout` | ✅ | Revocar todos los refresh tokens del usuario |
 
 ### Productos
 | Método | Endpoint | Auth | Descripción |
 |--------|----------|------|-------------|
-| `GET` | `/api/v1/Products` | ❌ | Listar productos activos |
+| `GET` | `/api/v1/Products` | ❌ | Listar productos activos (paginado, filtros) |
 | `GET` | `/api/v1/Products/{id}` | ❌ | Obtener producto por ID |
-| `POST` | `/api/v1/Products` | ✅ | Crear producto |
-| `PUT` | `/api/v1/Products/{id}` | ✅ | Actualizar producto |
-| `DELETE` | `/api/v1/Products/{id}` | ✅ | Eliminar producto (soft delete) |
+| `POST` | `/api/v1/Products` | ✅ Admin | Crear producto |
+| `PUT` | `/api/v1/Products/{id}` | ✅ Admin/Bodeguero | Actualizar producto |
+| `DELETE` | `/api/v1/Products/{id}` | ✅ Admin | Eliminar producto (soft delete) |
+| `GET` | `/api/v1/Products/demand-forecast/top` | ❌ | Top N productos con predicción de agotamiento |
+| `GET` | `/api/v1/Products/{id}/demand-forecast` | ❌ | Predicción de demanda de un producto |
+| `GET` | `/api/v1/Products/semantic-search` | ❌ | Búsqueda semántica (Gemini) |
+| `POST` | `/api/v1/Products/generate-embeddings` | ✅ Admin | Regenerar embeddings de todos los productos |
 
 ### Órdenes
 | Método | Endpoint | Auth | Descripción |
 |--------|----------|------|-------------|
-| `GET` | `/api/v1/Orders` | ✅ | Listar órdenes del usuario |
+| `GET` | `/api/v1/Orders` | ✅ | Listar órdenes (paginado, por rol) |
 | `GET` | `/api/v1/Orders/{id}` | ✅ | Detalle de orden |
-| `POST` | `/api/v1/Orders` | ✅ | Crear orden (valida stock) |
+| `POST` | `/api/v1/Orders` | ✅ Admin/Vendedor | Crear orden (valida stock, calcula IVA, asigna anomalía) |
 | `PUT` | `/api/v1/Orders/{id}/status` | ✅ | Actualizar estado de orden |
+| `GET` | `/api/v1/Orders/{id}/dte` | ✅ | DTE simulado (SII tipo 33) |
+| `POST` | `/api/v1/Orders/detect-anomalies` | ✅ Admin | Detectar anomalías en todas las órdenes |
 
 ### Health
 | Método | Endpoint | Auth | Descripción |
 |--------|----------|------|-------------|
 | `GET` | `/api/v1/Health` | ❌ | Health check de la API |
 
----
-
-## 📸 Capturas
-
-> *(GIFs pendientes de grabación — se agregan en la Fase 5.)*
-
-| Flujo | GIF |
-|-------|-----|
-| Login + dark mode | [`docs/gifs/01-login.gif`](docs/gifs/01-login.gif) |
-| Productos con filtros y paginación | [`docs/gifs/02-products.gif`](docs/gifs/02-products.gif) |
-| Carrito y checkout | [`docs/gifs/03-cart.gif`](docs/gifs/03-cart.gif) |
-| Historial de órdenes | [`docs/gifs/04-orders.gif`](docs/gifs/04-orders.gif) |
-
-Una vez grabados, cada GIF se embebe con `![descripción](docs/gifs/0X-nombre.gif)`.
 
 ---
 
@@ -377,15 +397,16 @@ Una vez grabados, cada GIF se embebe con `![descripción](docs/gifs/0X-nombre.gi
 
 | Módulo | Estado |
 |--------|--------|
-| Backend (.NET 10 + EF Core) | ✅ 95% |
-| Autenticación JWT | ✅ 100% |
-| CRUD de productos | ✅ 100% |
+| Backend (.NET 10 + EF Core) | ✅ 100% |
+| Autenticación JWT + refresh tokens | ✅ 100% |
+| Roles (Admin/Vendedor/Bodeguero) | ✅ 100% |
+| CRUD de productos + paginación | ✅ 100% |
 | Sistema de órdenes + inventario | ✅ 100% |
 | IVA + DTE simulado | ✅ 100% |
 | Predicción de demanda | ✅ 100% |
 | Detección de anomalías | ✅ 100% |
 | Búsqueda semántica (Gemini) | ✅ 100% |
-| Frontend React (login, productos, carrito, órdenes) | ✅ 85% |
+| Frontend React (login, productos, carrito, órdenes) | ✅ 95% |
 | Base de datos + seed | ✅ 95% |
 | Documentación | ✅ 90% |
 | Tests automatizados | ✅ 56 tests |
@@ -407,21 +428,21 @@ Una vez grabados, cada GIF se embebe con `![descripción](docs/gifs/0X-nombre.gi
 - [x] Carrito de compras
 - [x] Dashboard de KPIs
 - [x] Filtros y ordenamiento
-- [ ] Roles de usuario (Admin / Vendedor / Bodeguero)
-- [ ] Paginación server-side
-- [ ] Refresh tokens
+- [x] Roles de usuario (Admin / Vendedor / Bodeguero)
+- [x] Paginación server-side
+- [x] Refresh tokens
 - [x] Versionado de API (`/api/v1/`)
 
 ### Fase 2 — Ingeniería de producción
-- [ ] Tests unitarios e integración (xUnit + WebApplicationFactory)
-- [ ] Dockerfile multi-stage + docker-compose
-- [ ] CI/CD con GitHub Actions
+- [x] Tests unitarios e integración (xUnit + WebApplicationFactory) — 56 tests
+- [x] Dockerfile multi-stage + docker-compose
+- [x] CI/CD con GitHub Actions
 - [ ] Serilog configurado (consola + archivo)
 - [ ] Health Checks (`/health`, `/health/ready`)
 - [ ] Rate Limiting en endpoints de auth
 
 ### Fase 3 — IA aplicada
-- [x] Predicción de demanda de stock (ML.NET)
+- [x] Predicción de demanda de stock (ML.NET + estadística)
 - [x] Detección de anomalías en órdenes (Z-score)
 - [x] Búsqueda semántica con Google Gemini
 
