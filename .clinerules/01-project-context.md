@@ -4,9 +4,12 @@
 - Backend: .NET 10 (ASP.NET Core), EF Core 9, SQL Server LocalDB (dev) / Azure SQL (prod planificado)
 - Frontend: React 19 + Vite 8, JavaScript (NO TypeScript por ahora), Context API, Axios
 - Auth: JWT Bearer (15 min) + refresh tokens (7 días, rotación), Identity para usuarios
-- Testing: xUnit + WebApplicationFactory (54 tests)
-- IA implementada: ML.NET (predicción demanda con estadística + Randomized PCA planned for anomalies)
-- Detección de anomalías en órdenes: Z-score estadístico (Randomized PCA queda como TODO)
+- Testing: xUnit + WebApplicationFactory (56 tests)
+- IA implementada:
+  - Predicción de demanda (estadística sobre InventoryMovement)
+  - Detección de anomalías (Z-score estadístico)
+  - Búsqueda semántica (Google Gemini gemini-embedding-2, 768 dims)
+  - ML.NET 4.0.2 instalado para futuras extensiones
 
 ## Arquitectura
 - Clean Architecture simplificada en 3 capas:
@@ -41,6 +44,13 @@
 - Migración nueva: `dotnet ef migrations add <Nombre> --project ../WareFlow.Infrastructure --startup-project .`
 - Aplicar migración: `dotnet ef database update --project ../WareFlow.Infrastructure --startup-project .`
 - Seed productos: `sqlcmd -S "(localdb)\MSSQLLocalDB" -d "WareFlowDB" -i "seed-massive-products.sql"`
+
+## Configuración (secretos)
+- Gemini API: requiere `Gemini__ApiKey` en Azure App Service y en
+  `appsettings.Development.json` (gitignored)
+- `GEMINI_API_KEY` en el `.env` del host para docker-compose
+- El repositorio es público: la key NUNCA se commitea (`appsettings.json`
+  mantiene `"ApiKey": ""`)
 
 ## Package manager (regla estricta)
 - Frontend: SIEMPRE `pnpm`. NUNCA `npm` ni `yarn`.

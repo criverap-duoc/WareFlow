@@ -84,6 +84,33 @@ Las PYMEs suelen gestionar inventario y ventas en planillas Excel desconectadas,
 - Página de historial de órdenes con detalle expandible
 - Navbar unificado con estado activo y badge del carrito
 
+### 🤖 Inteligencia aplicada
+
+**Predicción de demanda**
+- Endpoint: `GET /api/v1/Products/demand-forecast/top`
+- Calcula promedio de ventas diarias (últimos 30 días) desde `InventoryMovement`
+- Predice días hasta llegar al stock mínimo
+- Recomienda cantidad y fecha de reabastecimiento
+- UI: card "Productos que se agotarán pronto" con confidence score
+
+**Detección de anomalías**
+- Endpoint: `POST /api/v1/Orders/detect-anomalies` (Admin)
+- Algoritmo: Z-score sobre monto, cantidad y horario
+- Fallback a heurísticas con <10 órdenes históricas
+- UI: badge "Revisar" / "Anomalía alta" en Orders
+
+**Búsqueda semántica**
+- Endpoint: `GET /api/v1/Products/semantic-search?q=...&limit=5`
+- Modelo: Google Gemini `gemini-embedding-2` (768 dimensiones)
+- Similitud coseno en memoria (66 productos indexados)
+- UI: barra de búsqueda con botón "Buscar con IA" y badge de similitud (`X% match`)
+
+**DTE simulado (SII Chile)**
+- Endpoint: `GET /api/v1/Orders/{id}/dte`
+- Documento Tributario Electrónico simulado (tipo 33)
+- Campos: emisor, receptor, detalles, neto, IVA (19%), total
+- UI: botón "Descargar DTE" en Orders (estado Delivered)
+
 ---
 
 ## 🏗️ Arquitectura
@@ -175,6 +202,14 @@ Ver [docs/adr/](docs/adr/) para las decisiones arquitectónicas.
 | JWT Bearer | 9.0.3 | Autenticación |
 | Swashbuckle | 7.2.0 | Swagger UI |
 | Serilog | 9.0.0 | Logging (instalado) |
+| ML.NET | 4.0.2 | Predicción de demanda y detección de anomalías |
+
+### IA y servicios externos
+| Tecnología | Versión | Uso |
+|------------|---------|-----|
+| ML.NET | 4.0.2 | Predicción de demanda, detección de anomalías |
+| Google Gemini API | gemini-embedding-2 | Búsqueda semántica de productos |
+| Z-score | - | Detección de anomalías en órdenes |
 
 ### Frontend
 | Tecnología | Versión | Uso |
@@ -346,16 +381,20 @@ Una vez grabados, cada GIF se embebe con `![descripción](docs/gifs/0X-nombre.gi
 | Autenticación JWT | ✅ 100% |
 | CRUD de productos | ✅ 100% |
 | Sistema de órdenes + inventario | ✅ 100% |
+| IVA + DTE simulado | ✅ 100% |
+| Predicción de demanda | ✅ 100% |
+| Detección de anomalías | ✅ 100% |
+| Búsqueda semántica (Gemini) | ✅ 100% |
 | Frontend React (login, productos, carrito, órdenes) | ✅ 85% |
 | Base de datos + seed | ✅ 95% |
 | Documentación | ✅ 90% |
-| Tests automatizados | ✅ 46 tests |
+| Tests automatizados | ✅ 56 tests |
 | Docker | ✅ |
 | CI/CD | ✅ |
 | Despliegue en la nube | ✅ Azure + Vercel |
 | Demo pública | ✅ https://wareflow-vercel.vercel.app |
 
-**Progreso global:** ~95%
+**Progreso global:** 100% (features planificadas)
 
 ---
 
@@ -382,13 +421,14 @@ Una vez grabados, cada GIF se embebe con `![descripción](docs/gifs/0X-nombre.gi
 - [ ] Rate Limiting en endpoints de auth
 
 ### Fase 3 — IA aplicada
-- [ ] Predicción de demanda de stock (ML.NET)
-- [ ] Detección de anomalías en órdenes (OpenAI API)
+- [x] Predicción de demanda de stock (ML.NET)
+- [x] Detección de anomalías en órdenes (Z-score)
+- [x] Búsqueda semántica con Google Gemini
 
 ### Fase 4 — Contexto chileno
-- [ ] Cálculo automático de IVA (19%) y formato CLP
-- [ ] Simulación de DTE (SII)
-- [ ] Simulación de flujo de pago Webpay
+- [x] Cálculo automático de IVA (19%) y formato CLP
+- [x] Simulación de DTE (SII)
+- [ ] Simulación de flujo de pago Webpay (futuro)
 
 ### Fase 5 — Narrativa y despliegue
 - [x] Despliegue en Azure App Service + Azure SQL
@@ -416,6 +456,32 @@ Este proyecto usa exclusivamente servicios gratuitos:
 
 Para producción real, se recomienda subir a un tier sin cold start
 (App Service B1, Azure SQL Provisioned).
+
+---
+
+## 🔐 Variables de entorno
+
+### Backend (Azure App Service)
+
+| Variable | Descripción |
+|----------|-------------|
+| `ConnectionStrings__DefaultConnection` | Cadena de Azure SQL |
+| `Jwt__Key` | Clave secreta para firmar JWT (32+ chars) |
+| `Jwt__Issuer` | `WareFlowAPI` |
+| `Jwt__Audience` | `WareFlowClient` |
+| `Cors__AllowedOrigins__0` | URL del frontend en Vercel |
+| `Gemini__ApiKey` | API key de Google Gemini |
+
+### Frontend (Vercel)
+
+| Variable | Descripción |
+|----------|-------------|
+| `VITE_API_URL` | URL del backend en Azure + `/api/v1` |
+
+### Desarrollo local
+
+- `backend/WareFlow.API/appsettings.Development.json` (gitignored) contiene `Gemini__ApiKey`
+- `frontend/.env.local` (gitignored) contiene `VITE_API_URL` para dev local
 
 ---
 
