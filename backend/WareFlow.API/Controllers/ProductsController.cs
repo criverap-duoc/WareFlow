@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using WareFlow.API.Services;
 using WareFlow.Core.DTOs;
@@ -265,6 +266,28 @@ public class ProductsController : ControllerBase
 
     // ---------------- Búsqueda semántica (Fase IA.3) ----------------
 
+    // Relevancia mínima (similitud coseno) para devolver un producto. Con 0.50
+    // entraban coincidencias del 56-60% sin relación semántica real con la query.
+    private const double MinimumSimilarityScore = 0.70;
+
+    // Términos ajenos al catálogo. Un embedding siempre encuentra un "vecino"
+    // aunque la consulta no tenga nada que ver: si la query habla de comida se
+    // corta antes de gastar una llamada al proveedor.
+    private static readonly string[] NonProductTerms =
+    {
+        "cazuela", "pollo", "comida", "receta", "almuerzo",
+        "cena", "desayuno", "postre", "bebida"
+    };
+
+    private static readonly Regex WordSeparator = new(@"[^\p{L}\p{N}]+", RegexOptions.Compiled);
+
+    // Compara palabra por palabra (no substring) para no confundir "escena" con
+    // "cena", y acepta plurales o derivados ("recetas" → "receta").
+    private static bool ContainsNonProductTerm(string query) =>
+        WordSeparator.Split(query.ToLowerInvariant())
+            .Any(word => word.Length >= 3 &&
+                         NonProductTerms.Any(term => word.StartsWith(term, StringComparison.Ordinal)));
+
     // GET: api/products/semantic-search?q=laptops baratas con stock&limit=5
     // Compara el embedding de la consulta con el de cada producto (similitud
     // coseno en memoria: 66 productos no justifican una vector DB).
@@ -278,6 +301,30 @@ public class ProductsController : ControllerBase
         if (string.IsNullOrWhiteSpace(q))
             return BadRequest(new { message = "Query requerido" });
 
+        var query = q.Trim();
+
+        // Consultas sin señal (1-2 caracteres, solo dígitos o símbolos) producen
+        // un embedding inútil: se rechazan antes de llamar al proveedor.
+        if (query.Length < 3)
+            return BadRequest(new { message = "Query muy corto (mínimo 3 caracteres)" });
+
+        if (!query.Any(char.IsLetter))
+            return BadRequest(new { message = "Query inválida: debe contener texto descriptivo" });
+
+        // Filtro híbrido: la similitud de embeddings no distingue "temáticamente
+        // parecido" de "relevante para el catálogo". Una consulta de comida no
+        // tiene productos posibles, así que se responde vacío sin llamar a Gemini.
+        if (ContainsNonProductTerm(query))
+        {
+            return Ok(new
+            {
+                query,
+                count = 0,
+                results = Array.Empty<object>(),
+                message = "La búsqueda es para productos de tecnología, no comida"
+            });
+        }
+
         if (limit < 1) limit = 1;
         if (limit > 20) limit = 20;
 
@@ -285,7 +332,7 @@ public class ProductsController : ControllerBase
         float[] queryEmbedding;
         try
         {
-            queryEmbedding = await embeddingService.GenerateQueryEmbeddingAsync(q.Trim());
+            queryEmbedding = await embeddingService.GenerateQueryEmbeddingAsync(query);
         }
         catch (Exception ex) when (ex is HttpRequestException or InvalidOperationException or TaskCanceledException)
         {
@@ -333,14 +380,14 @@ public class ProductsController : ControllerBase
                     GeminiEmbeddingService.CosineSimilarity(queryEmbedding, x.Vector!),
                     4)
             })
-            .Where(r => r.Score > 0.5) // Umbral mínimo de relevancia
+            .Where(r => r.Score > MinimumSimilarityScore) // Umbral mínimo de relevancia
             .OrderByDescending(r => r.Score)
             .Take(limit)
             .ToList();
 
         return Ok(new
         {
-            query = q,
+            query,
             count = results.Count,
             results
         });

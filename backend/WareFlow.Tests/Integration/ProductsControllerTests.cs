@@ -472,7 +472,119 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
 
         var first = payload.GetProperty("results").EnumerateArray().Single();
         first.GetProperty("name").GetString().Should().Be("Laptop económica");
+        // Fix 1: un match por debajo de 0.70 ya no se devuelve.
+        first.GetProperty("score").GetDouble().Should().BeGreaterThan(0.70);
         first.GetProperty("score").GetDouble().Should().BeApproximately(1.0, 0.0001);
+    }
+
+    [Theory]
+    [InlineData("ab")]
+    [InlineData(" x ")]
+    public async Task SemanticSearch_WithTooShortQuery_ReturnsBadRequest(string q)
+    {
+        var response = await _client.GetAsync(
+            $"/api/v1/products/semantic-search?q={Uri.EscapeDataString(q)}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
+        payload.GetProperty("message").GetString().Should().Contain("mínimo 3 caracteres");
+    }
+
+    [Theory]
+    [InlineData("123")]
+    [InlineData("12.99")]
+    public async Task SemanticSearch_WithoutLetters_ReturnsBadRequest(string q)
+    {
+        var response = await _client.GetAsync(
+            $"/api/v1/products/semantic-search?q={Uri.EscapeDataString(q)}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
+        payload.GetProperty("message").GetString().Should().Contain("texto descriptivo");
+    }
+
+    [Fact]
+    public async Task SemanticSearch_ExcludesCandidatesBelowThreshold()
+    {
+        using var factory = new SemanticSearchWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+            // Coincidencia exacta (coseno 1.0): debe quedar en el ranking.
+            context.Products.Add(new Product
+            {
+                Name = "Laptop económica",
+                SKU = TestHelpers.UniqueSku("SEM"),
+                Price = 399990m,
+                Stock = 12,
+                MinimumStock = 2,
+                Category = "Laptops",
+                Embedding = JsonSerializer.Serialize(StubEmbeddingService.Vector())
+            });
+
+            // Coseno 0.60: con el umbral anterior (0.50) entraba en los resultados.
+            context.Products.Add(new Product
+            {
+                Name = "CPU AMD Ryzen 7",
+                SKU = TestHelpers.UniqueSku("SEM"),
+                Price = 289990m,
+                Stock = 4,
+                MinimumStock = 1,
+                Category = "Procesadores",
+                Embedding = JsonSerializer.Serialize(StubEmbeddingService.WeaklyRelatedVector())
+            });
+
+            await context.SaveChangesAsync();
+        }
+
+        var response = await client.GetAsync("/api/v1/products/semantic-search?q=laptops%20baratas&limit=5");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
+        payload.GetProperty("count").GetInt32().Should().Be(1);
+
+        var results = payload.GetProperty("results").EnumerateArray().ToList();
+        results.Should().ContainSingle();
+        results[0].GetProperty("name").GetString().Should().Be("Laptop económica");
+        results.Should().OnlyContain(r => r.GetProperty("score").GetDouble() > 0.70);
+    }
+
+    [Fact]
+    public async Task SemanticSearch_WithFoodQuery_ReturnsEmptyResults()
+    {
+        using var factory = new SemanticSearchWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        // El stub devuelve siempre el mismo vector: sin el filtro de términos
+        // esta laptop aparecería con score 1.0 para cualquier consulta.
+        using (var scope = factory.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+            context.Products.Add(new Product
+            {
+                Name = "Laptop económica",
+                SKU = TestHelpers.UniqueSku("SEM"),
+                Price = 399990m,
+                Stock = 12,
+                MinimumStock = 2,
+                Category = "Laptops",
+                Embedding = JsonSerializer.Serialize(StubEmbeddingService.Vector())
+            });
+
+            await context.SaveChangesAsync();
+        }
+
+        var response = await client.GetAsync("/api/v1/products/semantic-search?q=cazuela%20de%20pollo");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
+        payload.GetProperty("count").GetInt32().Should().Be(0);
+        payload.GetProperty("results").GetArrayLength().Should().Be(0);
+        payload.GetProperty("message").GetString().Should().Contain("tecnología");
     }
 
     // ---------------- Helpers ----------------
@@ -531,6 +643,18 @@ internal class StubEmbeddingService : IEmbeddingService
     {
         var vector = new float[Dimensions];
         vector[0] = 1f;
+        return vector;
+    }
+
+    /// <summary>
+    /// Vector con similitud coseno de 0.60 frente a <see cref="Vector"/>: queda
+    /// bajo el umbral (0.70) y el producto no debe aparecer en el ranking.
+    /// </summary>
+    public static float[] WeaklyRelatedVector()
+    {
+        var vector = new float[Dimensions];
+        vector[0] = 0.6f;
+        vector[1] = 0.8f;
         return vector;
     }
 
